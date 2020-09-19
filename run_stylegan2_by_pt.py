@@ -8,17 +8,60 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import Generator
-
+from network_by_pt import Generator
+from weights_conversion import WeightsConverter
 
 if __name__ == '__main__':
-    device = 'cuda'
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--size', type=int, default=1024)
-
+    # command line
+    parser = argparse.ArgumentParser(description='Run StyleGAN2 with pre-trained weights by Pytorch')
+    parser.add_argument('--weight_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where pre-trained weights')
+    parser.add_argument('--output_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where generated images will be saved')
+    parser.add_argument('--batch_size', type=int, default=1)
     args = parser.perse_args()
 
-    # load model
-    generator = Generator
+    ## using pre-trained model of the original StyleGAN2  
+    # build model
+    generator = Generator()
+    base_state_dict = generator.state_dict()
+
+    # config for pre-trained weights
+    cfg = {
+        'src_weight': 'stylegan2_ndarray.pkl',
+        'src_latent': 'latents2.pkl',
+        'dst_image' : 'stylegan2_pt.png',
+        'dst_weight': 'stylegan2_state_dict.pth'
+    }
+
+    # load pre-trained weights 
+    with (Path(args.weight_dir)/cfg['src_weight']) as f:
+        src_dict_tf = pickle.load(f)
+    print('loaded pre-trained weights')
+    
+    # translate the pre-trained weights from Tensorflow into Pytorch
+    WC = WeightsConverter()
+    new_dict_pt = WC.convert(src_dict_tf)
+    generator.load_state_dict(new_dict_pt)
+    print('set state_dict')
+
+    # load latents
+    with (Path(args.output_dir)/cfg['src_latent']).open(rb) as f:
+        latents = pickle.load(f)
+    latents = torch.from_numpy(latents.astype(np.float32))
+    print('loaded latents')
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
+    with torch.no_grad():
+        N, _ = latents.shape
+        generator.to(device)
+
+
+
+        
+    
+
+
+    
