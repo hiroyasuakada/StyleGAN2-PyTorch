@@ -50,3 +50,9 @@ RUN pip3 install torch torchvision
 RUN apt update
 RUN echo y | apt install git
 
+
+##############################################################################
+##                            opencv2 error                                 ##
+##############################################################################
+RUN apt update
+RUN echo y | apt install libgl1-mesa-glx

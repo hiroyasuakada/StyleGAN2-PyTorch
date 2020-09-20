@@ -12,11 +12,18 @@ from network_by_pt import Generator
 from weights_conversion import WeightsConverter
 
 if __name__ == '__main__':
+    # gpu or cpu
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
     # command line
     parser = argparse.ArgumentParser(description='Run StyleGAN2 with pre-trained weights by Pytorch')
     parser.add_argument('--weight_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where pre-trained weights')
     parser.add_argument('--output_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where generated images will be saved')
     parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--resolution', type=int, default=1024)
     args = parser.perse_args()
 
     ## using pre-trained model of the original StyleGAN2  
@@ -48,15 +55,15 @@ if __name__ == '__main__':
         latents = pickle.load(f)
     latents = torch.from_numpy(latents.astype(np.float32))
     print('loaded latents')
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
-
+    
+    # run generator
     with torch.no_grad():
         N, _ = latents.shape
         generator.to(device)
+        images = np.empty((N, args.resolution, args.resolution, 3), dtype=np.uint8)
+
+        for i in range(0, N, args.batch_size):
+            
 
 
 
