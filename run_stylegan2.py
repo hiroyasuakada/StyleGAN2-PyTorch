@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from network_by_pt import Generator
+from network_stylegan2 import Generator
 from weights_conversion import WeightsConverter
 
 if __name__ == '__main__':
