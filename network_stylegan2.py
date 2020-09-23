@@ -51,7 +51,7 @@ class GeneratorMapping(nn.Module):
         # build a last layer for truncation trick
         layers.append(TruncationTrick(num_target=10, threshold=0.7, out_num=18, dlatent_size=512))
         
-        self.model = nn.ModuleList(layers)
+        self.blocks = nn.ModuleList(layers)
 
         # # display layers
         # print('Generator Mapping Network: ')
@@ -65,8 +65,8 @@ class GeneratorMapping(nn.Module):
         """
 
         x = latents_in
-        for i in range(len(self.model)):
-            x = self.model[i](x)
+        for i in range(len(self.blocks)):
+            x = self.blocks[i](x)
         return x
 
 
@@ -102,15 +102,15 @@ class GeneratorSynthesis(nn.Module):
 
         def nf(stage):
             return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
-            # in / out
-            # 512  512
-            # 512  512
-            # 512  512
-            # 512  512
-            # 512  256
-            # 256  128
-            # 128   64
-            #  64   32
+            # blocks / in / out
+            #    0     512  512
+            #    1     512  512
+            #    2     512  512
+            #    3     512  512
+            #    4     512  256
+            #    5     256  128
+            #    6     128   64
+            #    7      64   32
 
         # build early layers, nf(1) = 512
         self.init_block = InputBlock(dlatent_size=dlatent_size, num_channels=num_channels,
@@ -216,17 +216,26 @@ if __name__ == '__main__':
     #         params_1 += p.numel()
     # print('params_0: {}'.format(params_1))
 
-    # generator_network
-    gen = Generator().to('cuda:0')
-    print(gen)
-    test_latents_in = torch.randn(4, 512).to('cuda:0')
-    test_imgs_out = gen(test_latents_in)
-    print('imgs_out: {}'.format(test_imgs_out.shape))  # [N 18, D] = [4, 18, 512]
-    # check params
-    params_2 = 0
-    for p in gen.parameters():
-        if p.requires_grad:
-            params_2 += p.numel()
-    print('params_2: {}'.format(params_2))
+    # # generator_network
+    # gen = Generator().to('cuda:0')
+    # print(gen)
+    # test_latents_in = torch.randn(4, 512).to('cuda:0')
+    # test_imgs_out = gen(test_latents_in)
+    # print('imgs_out: {}'.format(test_imgs_out.shape))  # [N 18, D] = [4, 18, 512]
+    # # check params
+    # params_2 = 0
+    # for p in gen.parameters():
+    #     if p.requires_grad:
+    #         params_2 += p.numel()
+    # print('params_2: {}'.format(params_2))
 
+    fmap_base=16 << 10
+    fmap_decay=1.0
+    fmap_min=1
+    fmap_max=512
 
+    def nf(stage):
+        return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
+
+    print(nf(7))
+    print(nf(6))

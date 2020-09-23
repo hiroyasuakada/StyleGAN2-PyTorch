@@ -133,7 +133,11 @@ class EqualizedModConv2D(nn.Module):
         self.stride = stride
         self.demodulate = demodulate
 
-        self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
+        if self.up:
+            self.weight = nn.Parameter(torch.randn(in_channels, out_channels, kernel_size, kernel_size))
+        else:
+            self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
+
         torch.nn.init.normal_(self.weight.data, mean=0.0, std=1.0/lr)
         self.weight_scaler = 1 / (in_channels * kernel_size * kernel_size) ** 0.5 * lr
 
@@ -145,33 +149,47 @@ class EqualizedModConv2D(nn.Module):
 
     def forward(self, x, style):
         N, iC, H, W = x.shape
-        oC, iC, kH, kW = self.weight.shape
 
-        # modulate
-        mod_rates = self.bias(self.fc(style)) + 1  # (N, iC)
-        modulated_weight = self.weight_scaler * self.weight.view(1,oC,iC,kH,kW) * mod_rates.view(N,1,iC,1,1) # (N,oC,iC,kH,kW)
-        
-        # demodulate
-        if self.demodulate:
-            # Scaling facotr
-            demod_norm = 1 / ((modulated_weight ** 2).sum([2, 3, 4]) + 1e-8) ** 0.5  # (N, oC)
-            weight = modulated_weight * demod_norm.view(N, oC, 1, 1, 1)  # (N, oC, iC, kH, kW)
-        else:
-            # ToRGB
-            weight = modulated_weight
-
-        # conv2d or convT2d
         if self.up:
+            iC, oC, kH, kW = self.weight.shape      
+    
+            # modulate            
+            mod_rates = self.bias(self.fc(style)) + 1 # (N, iC)
+            modulated_weight = self.weight_scaler * self.weight.view(1,iC,oC,kH,kW) * mod_rates.view(N,iC,1,1,1) # (N,iC,oC,kH,kW)
+
+            if self.demodulate:
+                demod_norm = 1 / ((modulated_weight ** 2).sum([1, 3, 4]) + 1e-8) ** 0.5 # (N, oC)
+                weight = modulated_weight * demod_norm.view(N, 1, oC, 1, 1) # (N,iC,oC,kH,kW)
+            else:
+                weight = modulated_weight
+
             x = x.view(1, N * iC, H, W)
             weight = weight.view(N * iC, oC, kH, kW)
             out = F.conv_transpose2d(x, weight, padding=self.padding, stride=self.stride, groups=N)
             _, _, H1, W1 = out.shape
             out = out.view(N, oC, H1, W1)
             out = self.bulr(out)
+        
         else:
+            oC, iC, kH, kW = self.weight.shape
+
+            # modulate
+            mod_rates = self.bias(self.fc(style)) + 1  # (N, iC)
+            modulated_weight = self.weight_scaler * self.weight.view(1,oC,iC,kH,kW) * mod_rates.view(N,1,iC,1,1) # (N,oC,iC,kH,kW)
+            
+            # demodulate
+            if self.demodulate:
+                # Scaling facotr
+                demod_norm = 1 / ((modulated_weight ** 2).sum([2, 3, 4]) + 1e-8) ** 0.5  # (N, oC)
+                weight = modulated_weight * demod_norm.view(N, oC, 1, 1, 1)  # (N, oC, iC, kH, kW)
+            else:
+                # ToRGB
+                weight = modulated_weight
+
             x = x.view(1, N * iC, H, W)
             weight = weight.view(N * oC, iC, kH, kW)
             out = F.conv2d(x, weight, padding=self.padding, stride=self.stride, groups=N)
             out = out.view(N, oC, H, W)
+
         return out
                  
