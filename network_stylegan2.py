@@ -4,9 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from network_base import PixelwiseNormalization, TruncationTrick
-from network_base import EqualizedFullyConnect, AddChannelwiseBias, Amplify
-from network_base import GeneratorSynthesisBlock, InputBlock
+from network_base_layers import PixelwiseNormalization, TruncationTrick
+from network_blocks import GeneratorMappingBlock, InputBlock, GeneratorSynthesisBlock
+
+
+###################################################################################################
+###                           Sub Networks (Mapping and Synthesis)                              ###
+###################################################################################################
 
 
 class GeneratorMapping(nn.Module):
@@ -42,10 +46,7 @@ class GeneratorMapping(nn.Module):
             in_fmaps = self.latent_size if layer_idx==0 else self.mapping_fmaps
             out_fmaps = self.dlatent_size if layer_idx==0 else self.mapping_fmaps
 
-            layers.append(EqualizedFullyConnect(in_dim=in_fmaps, out_dim=out_fmaps, lr=0.01))
-            layers.append(AddChannelwiseBias(out_channels=out_fmaps, lr=0.01))
-            layers.append(Amplify(rate=2**0.5))
-            layers.append(nn.LeakyReLU(negative_slope=0.2))
+            layers.append(GeneratorMappingBlock(in_fmaps=in_fmaps, out_fmaps=out_fmaps))
 
         # build a last layer for truncation trick
         layers.append(TruncationTrick(num_target=10, threshold=0.7, out_num=18, dlatent_size=512))
@@ -111,11 +112,11 @@ class GeneratorSynthesis(nn.Module):
             # 128   64
             #  64   32
 
-        # early layers, nf(1) = 512
+        # build early layers, nf(1) = 512
         self.init_block = InputBlock(dlatent_size=dlatent_size, num_channels=num_channels,
                                      in_fmaps=nf(1), out_fmaps=nf(1), use_noise=randomize_noise)
 
-        # main layers
+        # build all the remaining layers
         blocks = [GeneratorSynthesisBlock(dlatent_size=dlatent_size, num_channels=num_channels, res=res,
                                   in_fmaps=nf(res - 2), out_fmaps=nf(res - 1), use_noise=randomize_noise)
                   for res in range(3, resolution_log2 + 1)]
@@ -140,6 +141,11 @@ class GeneratorSynthesis(nn.Module):
         images = skip
 
         return images
+
+
+###################################################################################################
+###                                 Generator and Discriminator                                 ###
+###################################################################################################
 
 
 class Generator(nn.Module):
@@ -173,7 +179,8 @@ class Generator(nn.Module):
         dlatents_in = self.mapping_network(latents_in)
         images_out = self.synthesis_network(dlatents_in)
 
-        return images_out, dlatents_in if return_dlatents else images_out
+        return images_out
+        # return images_out if return_dlatents is False else images_out, dlatents_in
 
 
 class Discriminator(nn.Module):
@@ -183,23 +190,43 @@ class Discriminator(nn.Module):
 
 if __name__ == '__main__':
 
-    # g_mapping = GeneratorMapping()
-    # test_latents_in = torch.randn(4, 512)
-    # test_dlatents_out = g_mapping(test_latents_in)
-
+    # ## mapping_network
+    # g_mapping = GeneratorMapping().to('cuda:0')
     # print(g_mapping)
-    # print(test_dlatents_out.shape)  # [N 18, D] = [4, 18, 512] 
+    # test_latents_in = torch.randn(4, 512).to('cuda:0')
+    # test_dlatents_out = g_mapping(test_latents_in)
+    # print('dlatents_out: {}'.format(test_dlatents_out.shape))  # [N 18, D] = [4, 18, 512]
+    # # check params
+    # params_0 = 0
+    # for p in g_mapping.parameters():
+    #     if p.requires_grad:
+    #         params_0 += p.numel()
+    # print('params_0: {}'.format(params_0))
 
-
-    # styles = [test_dlatents_out[:,i] for i in range(18)] # list[(N,D),(N,D), ...]x18
-    # print(styles[0].shape)
-    # print(styles[1].shape)
-
-    # g_synthesis = GeneratorSynthesis()
-    # test_dlatents_in = torch.randn(4, 18, 512)
+    # ## synthesis_network
+    # g_synthesis = GeneratorSynthesis().to('cuda:0')
+    # print(g_synthesis)
+    # test_dlatents_in = torch.randn(4, 18, 512).to('cuda:0')
     # test_imgs_out = g_synthesis(test_dlatents_in)
+    # print('imgs_out: {}'.format(test_imgs_out.shape))  # [N 18, D] = [4, 18, 512]
+    # # check params
+    # params_1 = 0
+    # for p in g_synthesis.parameters():
+    #     if p.requires_grad:
+    #         params_1 += p.numel()
+    # print('params_0: {}'.format(params_1))
 
-    gen = Generator()
+    # generator_network
+    gen = Generator().to('cuda:0')
     print(gen)
-    test_latents_in = torch.randn(4, 512)
+    test_latents_in = torch.randn(4, 512).to('cuda:0')
     test_imgs_out = gen(test_latents_in)
+    print('imgs_out: {}'.format(test_imgs_out.shape))  # [N 18, D] = [4, 18, 512]
+    # check params
+    params_2 = 0
+    for p in gen.parameters():
+        if p.requires_grad:
+            params_2 += p.numel()
+    print('params_2: {}'.format(params_2))
+
+

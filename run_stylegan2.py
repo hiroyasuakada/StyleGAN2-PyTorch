@@ -20,8 +20,8 @@ if __name__ == '__main__':
 
     # command line
     parser = argparse.ArgumentParser(description='Run StyleGAN2 with pre-trained weights by Pytorch')
-    parser.add_argument('--weight_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where pre-trained weights')
-    parser.add_argument('--output_dir', type=str, default='/tmp/stylegans-pytorch', help='dict where generated images will be saved')
+    parser.add_argument('--weight_dir', type=str, default='/original_implementation', help='dict where pre-trained weights')
+    parser.add_argument('--output_dir', type=str, default='/generated_imgs', help='dict where generated images will be saved')
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--resolution', type=int, default=1024)
     args = parser.perse_args()
@@ -56,19 +56,38 @@ if __name__ == '__main__':
     latents = torch.from_numpy(latents.astype(np.float32))
     print('loaded latents')
     
-    # run generator
+    print('network forward...')
+    device = torch.device('cuda:0') if torch.cuda.is_available() and args.device=='gpu' else torch.device('cpu')
     with torch.no_grad():
-        N, _ = latents.shape
+        N,_ = latents.shape
         generator.to(device)
-        images = np.empty((N, args.resolution, args.resolution, 3), dtype=np.uint8)
+        images = np.empty((N,args.resolution,args.resolution,3),dtype=np.uint8)
 
-        for i in range(0, N, args.batch_size):
-            
+        for i in range(0,N,args.batch_size):
+            j = min(i+args.batch_size,N)
+            z = latents[i:j].to(device)
+            img = generator(z)
+            normalized = (img.clamp(-1,1)+1)/2*255
+            images[i:j] = normalized.permute(0,2,3,1).cpu().numpy().astype(np.uint8)
+            del z, img, normalized
 
+    # 出力を並べる関数
+    def make_table(imgs):
+        # 出力する個数，解像度
+        num_H, num_W = 4,4
+        H = W = args.resolution
+        num_images = num_H*num_W
 
-
-        
+        canvas = np.zeros((H*num_H,W*num_W,3),dtype=np.uint8)
+        for i,p in enumerate(imgs[:num_images]):
+            h,w = i//num_W, i%num_W
+            canvas[H*h:H*-~h,W*w:W*-~w,:] = p[:,:,::-1]
+        return canvas
+ 
+    print('image output...')
+    cv2.imwrite(str(Path(args.output_dir)/cfg['dst_image']), make_table(images))
     
-
-
+    print('weight save...')
+    torch.save(generator.state_dict(),str(Path(args.weight_dir)/cfg['dst_weight']))
     
+    print('all done')
