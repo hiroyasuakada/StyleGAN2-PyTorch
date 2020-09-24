@@ -62,13 +62,14 @@ class EqualizedFullyConnect(nn.Module):
         super().__init__()
         # lr = 0.01 (mapping), 1.0 (mod,AdaIN)
         self.weight = nn.Parameter(torch.randn((out_dim, in_dim)))
-        torch.nn.init.normal_(self.weight.data, mean=0.0, std=1.0/lr)
-        self.weight_scaler = 1/(in_dim ** 0.5) * lr
+        torch.nn.init.normal_(self.weight.data, mean=0.0, std=1.0 / lr)
+        self.weight_scaler = 1 / (in_dim ** 0.5) * lr
 
     def forward(self, x):
         # x (N,D)
         x = F.linear(x, self.weight * self.weight_scaler, None)
         return x
+
 
 # read noise inputs from variables
 class PixelwiseNoise(nn.Module):
@@ -82,6 +83,7 @@ class PixelwiseNoise(nn.Module):
         noise = self.const_noise.expand(N, C, H, W)
         y = x + noise * self.noise_scaler
         return y
+
 
 # rondomize noise inputs every time (non-deterministic)
 class PixelwiseRondomizedNoise(nn.Module):
@@ -122,13 +124,14 @@ class FusedBlur3x3(nn.Module):
 
 class EqualizedModConv2D(nn.Module):
     def __init__(self, dlatent_size, in_channels, out_channels, kernel_size, 
-                 padding, stride, up=False, demodulate=True, lr=1):
+                 padding, stride, up=False, down=False, demodulate=True, lr=1):
 
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.up = up
+        self.down = down
         self.padding = padding
         self.stride = stride
         self.demodulate = demodulate
@@ -192,4 +195,31 @@ class EqualizedModConv2D(nn.Module):
             out = out.view(N, oC, H, W)
 
         return out
-                 
+
+
+class ConvLayer(nn.Module):
+    def __init__(self):
+        pass
+
+
+class EqualizedConv2D(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, lr=1.0):
+        super().__init__()
+
+        self.stride = stride
+        self.padding = padding
+
+        self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
+        self.weight_scaler = 1 / (in_channels * kernel_size * kernel_size) ** 0.5 * lr
+
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+
+        if bias:
+            self.bias = AddChannelwiseBias(out_channels=out_channels, lr=lr)
+        else:
+            self.bias = None
+
+    def forward(self, x):
+        pass
+
+        

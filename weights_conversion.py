@@ -190,17 +190,17 @@ class WeightsConverter():
         }
 
         self.functions_dict = {
-            # 変調転置畳み込みの重み (iC,oC,kH,kW)
+            # EqualizedConv2DTranspose (iC,oC,kH,kW)
             'mTc' : lambda weight: torch.flip(torch.from_numpy(weight.transpose((2,3,0,1))), [2, 3]),
-            # 転置畳み込みの重み (iC,oC,kH,kW)
+            # Conv2DTranspose (iC,oC,kH,kW)
             'Tco' : lambda weight: torch.from_numpy(weight.transpose((2,3,0,1))), 
-            # 畳み込みの重み (oC,iC,kH,kW)
+            # Conv2D (oC,iC,kH,kW)
             'con' : lambda weight: torch.from_numpy(weight.transpose((3,2,0,1))),
-            # 全結合層の重み (oD, iD)
+            # FullyConnect (oD, iD)
             'fc_' : lambda weight: torch.from_numpy(weight.transpose((1, 0))),
-            # 全結合層のバイアス項, 固定入力, 固定ノイズ, v1ノイズの重み (無変換)
+            # Bias, const_input, noise, v1 noise 
             'any' : lambda weight: torch.from_numpy(weight),
-            # Style-Mixingの値, v2ノイズの重み (scalar)
+            # Style-Mixing, v2 noise (scalar)
             'uns' : lambda weight: torch.from_numpy(np.array(weight).reshape(1)),
         }
 

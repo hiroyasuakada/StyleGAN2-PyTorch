@@ -11,7 +11,7 @@ from network_base_layers import Amplify, AddChannelwiseBias, EqualizedFullyConne
 
 
 ###################################################################################################
-###                             Sub Blocks (ModConvLayer and ToRGB)                             ###
+###                             Sub Blocks: ModConvLayer, ToRGB                                ###
 ###################################################################################################
 
 
@@ -65,7 +65,7 @@ class ToRGB(nn.Module):
 
 
 ###################################################################################################
-###                             Main Blocks: Mapping, Input, Synthesis                          ###
+###                         Main Blocks: Mapping, Input, Synthesis Resnet                       ###
 ###################################################################################################
 
 
@@ -149,3 +149,17 @@ class GeneratorSynthesisBlock(nn.Module):
 
         return x, skip
 
+
+class ResnetBlock(nn.Module):
+    def __init__(self, num_channels, res, in_fmaps, out_fmaps):
+        super().__init__()
+
+        self.conv0 = nn.Conv2d(strides=[1, 1, 1, 1], padding=0)
+        self.conv1_down = 1
+
+    def forward(self, x):
+        r = x
+        
+
+
+        pass

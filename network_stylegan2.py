@@ -184,8 +184,57 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, num_channels=3, resolution=1024):
-        pass
+    def __init__(self, num_channels=3, resolution=1024, 
+                 fmap_base=16 << 10, fmap_decay=1.0, fmap_min=1, fmap_max=512, 
+                 architecture='resnet', nonlinearity='lrelu', 
+                 mbstd_group_size=4, mbstd_num_features=1, resample_kernel=None, **_kwargs):
+
+        """
+        Args:
+            num_channels: Number of input color channels. Overridden based on dataset.
+            resolution: Input resolution. Overridden based on dataset.
+            label_size: Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
+            fmap_base: Overall multiplier for the number of feature maps.
+            fmap_decay: log2 feature map reduction when doubling the resolution.
+            fmap_min: Minimum number of feature maps in any layer.
+            fmap_max: Maximum number of feature maps in any layer.
+            architecture: Architecture: 'orig', 'skip', 'resnet'.
+            nonlinearity: Activation function: 'relu', 'lrelu', etc.
+            mbstd_group_size: Group size for the minibatch standard deviation layer, 0 = disable.
+            mbstd_num_features: Number of features for the minibatch standard deviation layer.
+            resample_kernel: Low-pass filter to apply when resampling activations. None = no filtering.
+            **_kwargs: Ignore unrecognized keyword args.):
+        """
+
+        super().__init__()
+
+        resolution_log2 = int(np.log2(resolution))
+        assert resolution == 2 ** resolution_log2 and resolution >= 4
+        assert architecture in ['orig', 'skip', 'resnet']
+
+        self.architecture = architecture
+        self.resolution_log2 = resolution_log2
+        self.nonlinearity = nonlinearity
+
+        def nf(stage):
+            return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
+            # blocks / in / out
+            #    0     512  512
+            #    1     512  512
+            #    2     512  512
+            #    3     512  512
+            #    4     512  256
+            #    5     256  128
+            #    6     128   64
+            #    7      64   32
+
+        resnet_blocks = [ResnetBlock()]
+
+        self.resnet_blocks = nn.ModuleList(resnet_blocks)
+
+    def forward(self, input):
+        out = self.conv(input)
+
 
 
 if __name__ == '__main__':
@@ -203,9 +252,9 @@ if __name__ == '__main__':
     #         params_0 += p.numel()
     # print('params_0: {}'.format(params_0))
 
-    # ## synthesis_network
-    # g_synthesis = GeneratorSynthesis().to('cuda:0')
-    # print(g_synthesis)
+    ## synthesis_network
+    g_synthesis = GeneratorSynthesis().to('cuda:0')
+    print(g_synthesis)
     # test_dlatents_in = torch.randn(4, 18, 512).to('cuda:0')
     # test_imgs_out = g_synthesis(test_dlatents_in)
     # print('imgs_out: {}'.format(test_imgs_out.shape))  # [N 18, D] = [4, 18, 512]
@@ -229,13 +278,13 @@ if __name__ == '__main__':
     #         params_2 += p.numel()
     # print('params_2: {}'.format(params_2))
 
-    fmap_base=16 << 10
-    fmap_decay=1.0
-    fmap_min=1
-    fmap_max=512
+    # fmap_base=16 << 10
+    # fmap_decay=1.0
+    # fmap_min=1
+    # fmap_max=512
 
-    def nf(stage):
-        return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
+    # def nf(stage):
+    #     return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
 
-    print(nf(7))
-    print(nf(6))
+    # print(nf(7))
+    # print(nf(6))
