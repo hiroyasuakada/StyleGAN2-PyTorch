@@ -43,6 +43,7 @@ RUN pip3 install opencv-python
 
 RUN pip3 install torch torchvision
 
+RUN pip3 install ninja
 
 ##############################################################################
 ##                               pytorch                                    ##

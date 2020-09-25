@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from network_base_layers import PixelwiseNormalization, TruncationTrick
-from network_blocks import GeneratorMappingBlock, InputBlock, GeneratorSynthesisBlock
+from network_blocks import GeneratorMappingBlock, InputBlock, GeneratorSynthesisBlock, DiscriminatorBlock
 
 
 ###################################################################################################
@@ -102,21 +102,24 @@ class GeneratorSynthesis(nn.Module):
 
         def nf(stage):
             return np.clip(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_min, fmap_max)
-            # blocks / in / out
-            #    0     512  512
-            #    1     512  512
-            #    2     512  512
-            #    3     512  512
-            #    4     512  256
-            #    5     256  128
-            #    6     128   64
-            #    7      64   32
 
-        # build early layers, nf(1) = 512
+        # build early layers
+        # nf(1) = 512
+        
         self.init_block = InputBlock(dlatent_size=dlatent_size, num_channels=num_channels,
                                      in_fmaps=nf(1), out_fmaps=nf(1), use_noise=randomize_noise)
 
         # build all the remaining layers
+        # blocks / in / out
+        #    0     512  512
+        #    1     512  512
+        #    2     512  512
+        #    3     512  512
+        #    4     512  256
+        #    5     256  128
+        #    6     128   64
+        #    7      64   32
+
         blocks = [GeneratorSynthesisBlock(dlatent_size=dlatent_size, num_channels=num_channels, res=res,
                                   in_fmaps=nf(res - 2), out_fmaps=nf(res - 1), use_noise=randomize_noise)
                   for res in range(3, resolution_log2 + 1)]
@@ -228,7 +231,7 @@ class Discriminator(nn.Module):
             #    6     128   64
             #    7      64   32
 
-        resnet_blocks = [ResnetBlock()]
+        resnet_blocks = [DiscriminatorBlock()]
 
         self.resnet_blocks = nn.ModuleList(resnet_blocks)
 

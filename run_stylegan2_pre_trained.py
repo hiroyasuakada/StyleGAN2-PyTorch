@@ -29,6 +29,7 @@ if __name__ == '__main__':
 
     ## using pre-trained model of the original StyleGAN2  
     # build model
+    print('\n build models... \n')
     generator = Generator()
     base_state_dict = generator.state_dict()
 
@@ -40,10 +41,13 @@ if __name__ == '__main__':
         'dst_weight': 'stylegan2_state_dict.pth'
     }
 
-    # load pre-trained weights 
+    # load pre-trained weights of Tensorflow
     print('\n load pre-trained weights... \n')
     with (Path(args.weight_dir)/cfg['src_weight']).open('rb') as f:
         src_dict_tf = pickle.load(f)
+
+    # for i in src_dict_tf:
+    #     print(i)
     
     # translate the pre-trained weights from Tensorflow into Pytorch
     print('\n set state_dict... \n')
@@ -51,47 +55,52 @@ if __name__ == '__main__':
     new_dict_pt = WC.convert(src_dict_tf)
     generator.load_state_dict(new_dict_pt)
 
-    # load latents
-    print('\n load latents... \n')
-    with (Path(args.output_dir)/cfg['src_latent']).open('rb') as f:
-        latents = pickle.load(f)
-    latents = torch.from_numpy(latents.astype(np.float32))
+    # # load pre-trained weights of Pytorch
+    # print('\n set state_dict... \n')
+    # new_dict_pt = torch.load(Path(args.weight_dir)/'stylegan2_state_dict.pth')
+    # generator.load_state_dict(new_dict_pt)
+
+    # # load latents
+    # print('\n load latents... \n')
+    # with (Path(args.output_dir)/cfg['src_latent']).open('rb') as f:
+    #     latents = pickle.load(f)
+    # latents = torch.from_numpy(latents.astype(np.float32))
     
-    print('\n network forward... \n')
-    with torch.no_grad():
-        N,_ = latents.shape
-        generator.to(device)
-        imgs = np.empty((N,args.resolution,args.resolution,3), dtype=np.uint8)
+    # print('\n network forward... \n')
+    # with torch.no_grad():
+    #     N,_ = latents.shape
+    #     generator.to(device)
+    #     imgs = np.empty((N,args.resolution,args.resolution,3), dtype=np.uint8)
 
-        for i in range(0, N, args.batch_size):
-            j = min(i + args.batch_size, N)
-            z = latents[i:j].to(device)
-            img = generator(z)
-            normalized = (img.clamp(-1, 1) + 1) / 2 * 255
-            imgs[i:j] = normalized.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
-            del z, img, normalized
+    #     for i in range(0, N, args.batch_size):
+    #         j = min(i + args.batch_size, N)
+    #         z = latents[i:j].to(device)
+    #         img = generator(z)
+    #         normalized = (img.clamp(-1, 1) + 1) / 2 * 255
+    #         imgs[i:j] = normalized.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
+    #         del z, img, normalized
 
-    # make table for generated imgs
-    def make_table_for_imgs(imgs):
-        # the number of imgs
-        num_H, num_W = 4,4
+    # # make table for generated imgs
+    # def make_table_for_imgs(imgs):
+    #     # the number of imgs
+    #     num_H, num_W = 4,4
 
-        # resolution
-        H = W = args.resolution
+    #     # resolution
+    #     H = W = args.resolution
 
-        num_imgs = num_H * num_W
-        table = np.zeros((H * num_H, W * num_W, 3),dtype=np.uint8)
+    #     num_imgs = num_H * num_W
+    #     table = np.zeros((H * num_H, W * num_W, 3),dtype=np.uint8)
 
-        for i,p in enumerate(imgs[:num_imgs]):
-            h, w = i // num_W, i % num_W
-            table[H * h:H * -~h, W * w:W * -~w, :] = p[:, :, ::-1]
+    #     for i,p in enumerate(imgs[:num_imgs]):
+    #         h, w = i // num_W, i % num_W
+    #         table[H * h:H * -~h, W * w:W * -~w, :] = p[:, :, ::-1]
 
-        return table
+    #     return table
  
-    print('\n images output... \n')
-    cv2.imwrite(str(Path(args.output_dir)/cfg['dst_image']), make_table_for_imgs(imgs))
+    # print('\n images output... \n')
+    # cv2.imwrite(str(Path(args.output_dir)/cfg['dst_image']), make_table_for_imgs(imgs))
     
-    print('\n weight save... \n')
-    torch.save(generator.state_dict(), str(Path(args.weight_dir)/cfg['dst_weight']))
+    # print('\n weight save... \n')
+    # torch.save(generator.state_dict(), str(Path(args.weight_dir)/cfg['dst_weight']))
     
-    print('\n all done \n')
+    # print('\n all done \n')

@@ -4,14 +4,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from network_base_layers import Amplify, AddChannelwiseBias, EqualizedFullyConnect, \
+from network_base_layers import Blur, Amplify, AddChannelwiseBias, EqualizedFullyConnect, \
                                 PixelwiseNoise, PixelwiseRondomizedNoise, \
-                                FusedBlur3x3, EqualizedModConv2D
+                                FusedBlur3x3, EqualizedModConv2D, EqualizedConv2D
 
+from op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
 
 
 ###################################################################################################
-###                             Sub Blocks: ModConvLayer, ToRGB                                ###
+###                          Sub Blocks: ModConvLayer, ToRGB, ConvLayer                         ###
 ###################################################################################################
 
 
@@ -64,8 +65,51 @@ class ToRGB(nn.Module):
         return out
 
 
+class ConvLayer(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, downsample=False, 
+                 blur_kernel=[1, 3, 3, 1], bias=True, activate=True):
+
+        super().__init__()
+
+        if downsample:
+            factor = 2
+            p = (len(blur_kernel) - factor) + (kernel_size - 1)
+            pad0 = (p + 1) // 2
+            pad1 = p // 2
+
+            self.blur = Blur(blur_kernel, pad=(pad0, pad1))
+
+            stride = 2
+            self.padding = 0
+
+        else:
+            stride = 1
+            self.padding = kernel_size // 2
+
+        self.conv = EquilizedConv2D(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+                                    padding=padding, stride=stride, bias=False)
+
+        if activate:
+            self.bias = AddChannelwiseBias(out_channels=out_channels, lr=1.0)
+            self.amplify = Amplify(rate=2**0.5)
+            self.activate = nn.LeakyReLU(negative_slope=0.2)
+
+    def forward(self, x):
+        if downsample:
+            x = self.blur(x)
+
+        x = self.conv(x)
+
+        if activate:
+            x = self.bias(x)
+            x = self.amplify(x)
+            x = self.activate(x)
+
+        return x
+
+
 ###################################################################################################
-###                         Main Blocks: Mapping, Input, Synthesis Resnet                       ###
+###                        Main Blocks: Mapping, Input, Synthesis, Resnet                       ###
 ###################################################################################################
 
 
@@ -150,16 +194,25 @@ class GeneratorSynthesisBlock(nn.Module):
         return x, skip
 
 
-class ResnetBlock(nn.Module):
-    def __init__(self, num_channels, res, in_fmaps, out_fmaps):
+class DiscriminatorBlock(nn.Module):
+    """
+    Build blocks for discriminator (resnets).
+    """
+    
+    def __init__(self, in_fmaps, out_fmaps):
         super().__init__()
 
-        self.conv0 = nn.Conv2d(strides=[1, 1, 1, 1], padding=0)
-        self.conv1_down = 1
+        self.conv0 = ConvLayer(in_channels=in_fmaps, out_channels=in_fmaps, kernel_size=3)
+        self.conv1_down = ConvLayer(in_channels=in_fmaps, out_channels=out_fmaps, kernel_size=3, downsample=True)
+
+        self.skip = ConvLayer(in_channels=in_fmaps, out_channels=out_fmaps, downsample=True, activate=False, bias=False)
 
     def forward(self, x):
-        r = x
+        out = self.conv0(x)
+        out = self.conv1_down(out)
+
+        skip = self.skip(x)
+        out = (out + skip) / math.sqrt(2)
+
+        return out   
         
-
-
-        pass

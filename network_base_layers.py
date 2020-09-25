@@ -4,6 +4,80 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
+
+
+def make_kernel(k):
+    k = torch.tensor(k, dtype=torch.float32)
+
+    if k.ndim == 1:
+        k = k[None, :] * k[:, None]
+
+    k /= k.sum()
+
+    return k
+
+
+class Upsample(nn.Module):
+    def __init__(self, kernel, factor=2):
+        super().__init__()
+
+        self.factor = factor
+        kernel = make_kernel(kernel) * (factor ** 2)
+        self.register_buffer('kernel', kernel)
+
+        p = kernel.shape[0] - factor
+
+        pad0 = (p + 1) // 2 + factor - 1
+        pad1 = p // 2
+
+        self.pad = (pad0, pad1)
+
+    def forward(self, input):
+        out = upfirdn2d(input, self.kernel, up=self.factor, down=1, pad=self.pad)
+
+        return out
+
+
+class Downsample(nn.Module):
+    def __init__(self, kernel, factor=2):
+        super().__init__()
+
+        self.factor = factor
+        kernel = make_kernel(kernel)
+        self.register_buffer('kernel', kernel)
+
+        p = kernel.shape[0] - factor
+
+        pad0 = (p + 1) // 2
+        pad1 = p // 2
+
+        self.pad = (pad0, pad1)
+
+    def forward(self, input):
+        out = upfirdn2d(input, self.kernel, up=1, down=self.factor, pad=self.pad)
+
+        return out
+
+
+class Blur(nn.Module):
+    def __init__(self, kernel, pad, upsample_factor=1):
+        super().__init__()
+
+        kernel = make_kernel(kernel)
+
+        if upsample_factor > 1:
+            kernel = kernel * (upsample_factor ** 2)
+
+        self.register_buffer('kernel', kernel)
+
+        self.pad = pad
+
+    def forward(self, input):
+        out = upfirdn2d(input, self.kernel, pad=self.pad)
+
+        return out
+
 
 class PixelwiseNormalization(nn.Module):
     def __init__(self):
@@ -115,7 +189,7 @@ class FusedBlur3x3(nn.Module):
         self.kernel = torch.from_numpy(kernel)
 
     def forward(self, feature):
-        # featureは(N,C,H+1,W+1)
+        # feature (N,C,H+1,W+1)
         kernel = self.kernel.clone().to(feature.device)
         _N,C,_Hp1,_Wp1 = feature.shape
         x = F.conv2d(feature, kernel.expand(C,1,4,4), padding=1, groups=C)
@@ -123,8 +197,8 @@ class FusedBlur3x3(nn.Module):
 
 
 class EqualizedModConv2D(nn.Module):
-    def __init__(self, dlatent_size, in_channels, out_channels, kernel_size, 
-                 padding, stride, up=False, down=False, demodulate=True, lr=1):
+    def __init__(self, dlatent_size, in_channels, out_channels, kernel_size, padding, stride, 
+                 up=False, down=False, demodulate=True, resample_kernel=None, lr=1):
 
         super().__init__()
 
@@ -132,12 +206,21 @@ class EqualizedModConv2D(nn.Module):
         self.out_channels = out_channels
         self.up = up
         self.down = down
+        self.kernel_size = kernel_size
         self.padding = padding
         self.stride = stride
         self.demodulate = demodulate
 
+        if resample_kernel is None:
+            resample_kernel = [1, 3, 3, 1]
+
         if self.up:
             self.weight = nn.Parameter(torch.randn(in_channels, out_channels, kernel_size, kernel_size))
+
+            factor = 2
+            p = (len(resample_kernel) - factor) - (kernel_size - 1)
+            self.blur = Blur(resample_kernel, pad=(
+                (p + 1) // 2 + factor - 1, p // 2 + 1), upsample_factor=factor)
         else:
             self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
 
@@ -147,8 +230,8 @@ class EqualizedModConv2D(nn.Module):
         self.fc = EqualizedFullyConnect(dlatent_size, in_channels, lr)
         self.bias = AddChannelwiseBias(in_channels, lr)
         
-        # only for ConvTranspose2D
-        self.bulr = FusedBlur3x3()
+        # # only for ConvTranspose2D
+        # self.bulr = FusedBlur3x3()
 
     def forward(self, x, style):
         N, iC, H, W = x.shape
@@ -197,11 +280,6 @@ class EqualizedModConv2D(nn.Module):
         return out
 
 
-class ConvLayer(nn.Module):
-    def __init__(self):
-        pass
-
-
 class EqualizedConv2D(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, lr=1.0):
         super().__init__()
@@ -212,14 +290,24 @@ class EqualizedConv2D(nn.Module):
         self.weight = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
         self.weight_scaler = 1 / (in_channels * kernel_size * kernel_size) ** 0.5 * lr
 
-        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=kernel_size, stride=stride, padding=padding)
-
         if bias:
-            self.bias = AddChannelwiseBias(out_channels=out_channels, lr=lr)
+            self.bias = nn.Parameter(torch.zeros(out_channel))
         else:
             self.bias = None
 
     def forward(self, x):
-        pass
-
+        out = F.conv2d(x, self.weight * self.weight_scaler, bias=self.bias, stride=self.stride, padding=self.padding)
         
+        return out
+
+
+# class ScaledLeakyReLU(nn.Module):
+#     def __init__(self, negative_slope=0.2):
+#         super().__init__()
+
+#         self.negative_slope = negative_slope
+
+#     def forward(self, input):
+#         out = F.leaky_relu(input, negative_slope=self.negative_slope)
+
+#         return out * math.sqrt(2)
