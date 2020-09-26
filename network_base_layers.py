@@ -231,7 +231,7 @@ class EqualizedModConv2D(nn.Module):
         self.bias = AddChannelwiseBias(in_channels, lr)
         
         # # only for ConvTranspose2D
-        # self.bulr = FusedBlur3x3()
+        # self.blur = FusedBlur3x3()
 
     def forward(self, x, style):
         N, iC, H, W = x.shape
@@ -254,7 +254,7 @@ class EqualizedModConv2D(nn.Module):
             out = F.conv_transpose2d(x, weight, padding=self.padding, stride=self.stride, groups=N)
             _, _, H1, W1 = out.shape
             out = out.view(N, oC, H1, W1)
-            out = self.bulr(out)
+            out = self.blur(out)
         
         else:
             oC, iC, kH, kW = self.weight.shape
