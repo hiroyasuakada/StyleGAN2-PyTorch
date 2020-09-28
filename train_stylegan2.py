@@ -15,19 +15,19 @@ import time
 import cv2
 
 ##################################################################
-from dataset import UnalignedDataset
-from model_base import ResNetBlock, Generator, Discriminator
-from model_cyclegan import CycleGAN
+# from dataset import UnalignedDataset
+from model_stylegan2 import StyleGAN2
 ##################################################################
 
 
 def train(log_dir, device, lr, beta1, lambda_idt, lambda_A, lambda_B, lambda_mask,
           num_epoch, num_epoch_resume, save_epoch_freq):
-    model = CycleGAN(log_dir=log_dir, device=device, lr=lr, beta1=beta1,
+
+    model = StyleGAN2(log_dir=log_dir, device=device, lr=lr, beta1=beta1,
                      lambda_idt=lambda_idt, lambda_A=lambda_A, lambda_B=lambda_B, lambda_mask=lambda_mask)
 
     if num_epoch_resume != 0:
-        model.log_dir = 'logs_3'
+        model.log_dir = 'logs'
         print('load model {}'.format(num_epoch_resume))
         model.load('epoch' + str(num_epoch_resume))
 
