@@ -4,5 +4,7 @@
 /original_implementation_by_tf/stylegan2
 /generated_imgs/latents2.pkl
 /docker_ITC
-/ffhq
+/ffhq_1024_flattened
+/ffhq_1024r_0_10000
+/lmdb_dataset
 
