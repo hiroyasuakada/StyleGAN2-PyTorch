@@ -1,3 +1,14 @@
+
+"""
+-------------------------------------------------
+   File Name:    distributed.py
+   Author:       Hiroyasu Akada
+   Date:         1, Oct, 2020
+   Description:  Modified from: 
+                 https://github.com/rosinality/stylegan2-pytorch/blob/master/distributed.py
+-------------------------------------------------
+"""
+
 import math
 import pickle
 

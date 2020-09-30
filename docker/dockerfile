@@ -45,6 +45,8 @@ RUN pip3 install torch torchvision
 
 RUN pip3 install ninja
 
+RUN pip3 install tensorboardX
+
 ##############################################################################
 ##                               pytorch                                    ##
 ##############################################################################
