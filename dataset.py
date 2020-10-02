@@ -14,6 +14,19 @@ from io import BytesIO
 import lmdb
 from PIL import Image
 from torch.utils.data import Dataset
+import torch.distributed as dist
+from torchvision import transforms, utils
+
+
+def data_sampler(dataset, shuffle, distributed):
+    if distributed:
+        return data.distributed.DistributedSampler(dataset, shuffle=shuffle)
+
+    if shuffle:
+        return data.RandomSampler(dataset)
+
+    else:
+        return data.SequentialSampler(dataset)
 
 
 class MultiResolutionDataset(Dataset):
