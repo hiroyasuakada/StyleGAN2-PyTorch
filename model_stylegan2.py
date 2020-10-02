@@ -9,6 +9,8 @@ import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import autograd
+from torchvision import utils 
 
 from model_networks import Generator, Discriminator
 from dataset import Dataset
@@ -20,10 +22,10 @@ from dataset import Dataset
 
 
 class StyleGAN2(object):
-    def __init__(self, log_dir='logs', device='cuda:0', gpu_ids=[0, 1, 2, 3], 
+    def __init__(self, log_dir='logs', device='cuda', gpu_ids=[0, 1, 2, 3], 
                  batch_size=16, n_sample=16, img_size=1024, lr=0.001, r1=10, 
                  path_regularize=2, path_batch_shrink=2, 
-                 g_reg_every=4, d_reg_every=16, mixing=0.9, mode_train=True):
+                 g_reg_every=4, d_reg_every=16, mixing=0.9):
         
         self.batch_size = batch_size
         self.n_sample = n_sample
@@ -47,10 +49,7 @@ class StyleGAN2(object):
 
         self.sample_z = torch.randn(self.n_sample, self.latent_size, device=self.device)
      
-        if mode_train:
-            self.gpu_ids = gpu_ids  # [0, 1, 2, 3] for DLB
-        else:
-            self.gpu_ids = [0]
+        self.gpu_ids = gpu_ids  # [0, 1, 2, 3] for DLB
         
         # faster training
         torch.backends.cudnn.benchmark = True
@@ -64,9 +63,7 @@ class StyleGAN2(object):
         self.D = torch.nn.DataParallel(self.D, self.gpu_ids)
         
         # initialize loss functions
-        self.d_adv_loss = torch.tensor(0.0, device=self.device)
         self.r1_loss = torch.tensor(0.0, device=self.device)
-        self.g_adv_loss = torch.tensor(0.0, device=self.device)
         self.path_loss = torch.tensor(0.0, device=self.device)
 
         # optimize params for G and D
@@ -81,16 +78,20 @@ class StyleGAN2(object):
                                             betas=(0 ** d_reg_ratio, 
                                                    0.99 ** d_reg_ratio))
 
-    def mixing_noise(self, batch_size, latent_size, prob):
+    def requires_grad(self, model, flag=True):
+        for p in model.parameters():
+            p.requires_grad = flag
+
+    def mixing_noise(self, batch_size, latent_size, prob, device):
         if prob > 0 and random.random() < prob:
-            noise = torch.randn(2, batch_size, latent_size, device=self.device).unbind(0)
+            noises = torch.randn(2, batch_size, latent_size, device=device).unbind(0)
+            return noises
         else:
-            noise = torch.randn(batch, latent_size, device=self.device)
+            noise = torch.randn(batch_size, latent_size, device=device)  # 16, 512
+            return [noise]  # torch.tensor in list, [(torch.tensor), (torch.tensor), ...]
 
-        return noise
-
-    def g_path_regularize(fake_imgs, latents, mean_path_length, decay=0.01):
-        moise = torch.randn_like(fake_imgs) / math.sqrt(fake_imgs.shape[2] * fake_imgs.shape[3])
+    def g_path_regularize(self, fake_imgs, latents, mean_path_length, decay=0.01):
+        noise = torch.randn_like(fake_imgs) / math.sqrt(fake_imgs.shape[2] * fake_imgs.shape[3])
         grad, = autograd.grad(outputs=(fake_imgs * noise).sum(), inputs=latents, create_graph=True)
         path_lengths = torch.sqrt(grad.pow(2).sum(2).mean(1))
 
@@ -99,18 +100,12 @@ class StyleGAN2(object):
 
         return path_loss, path_mean.detach(), path_lengths
 
-    def set_input(self, data):
-        data_D = data
-        data_G = data
-
-        return data_D, data_G
-
     def backward_D_adv(self, real_imgs, batch_size, latent_size, mixing, device):
         # make noise as an input for Generator
         noise = self.mixing_noise(batch_size, latent_size, mixing, device)
-        
+
         # create fake images
-        fake_imgs, _ = self.G(noise)
+        fake_imgs = self.G(noise)
 
         # predict real or fake
         fake_pred = self.D(fake_imgs)
@@ -143,9 +138,9 @@ class StyleGAN2(object):
     def backward_G_adv(self, batch_size, latent_size, mixing, device):
         # make noise as an input for Generator
         noise = self.mixing_noise(batch_size, latent_size, mixing, device)
-        
+
         # create fake images
-        fake_imgs, _ = self.G(noise)
+        fake_imgs = self.G(noise)
 
         # predict real or fake
         fake_pred = self.D(fake_imgs)
@@ -162,9 +157,15 @@ class StyleGAN2(object):
                         path_batch_shrink, mean_path_length, path_regularize, g_reg_every, device):
         path_batch_size = max(1, batch_size // path_batch_shrink)
         noise = self.mixing_noise(path_batch_size, latent_size, mixing, device)
-        fake_imgs, latents = self.G(noise, return_latents=True)
+        fake_imgs, dlatents, grad = self.G(noise, return_dlatents=True)
 
-        path_loss, mean_path_length, path_lengths = g_path_regularize(fake_imgs, latents, mean_path_length)
+        path_lengths = torch.sqrt(grad.pow(2).sum(2).mean(1))
+
+        decay = 0.01
+        path_mean = mean_path_length + decay * (path_lengths.mean() - mean_path_length)
+        path_loss = (path_lengths - path_mean).pow(2).mean()
+
+        mean_path_length = path_mean.detach()
 
         g_weighted_path_loss = path_regularize * g_reg_every * path_loss
 
@@ -178,64 +179,78 @@ class StyleGAN2(object):
         return path_loss, mean_path_length, path_lengths
 
     def optimize(self, batch_idx, data):
-        data_D, data_G = self.set_input(data)
+        real_imgs = data.to(self.device)
 
         # update Discriminator
         self.optimizer_D.zero_grad()
-        self.d_adv_loss = self.backward_D_adv(
-                real_imgs=data, batch_size=self.batch_size, latent_size=self.latent_size, 
-                mixing=self.mixing, device=self.device
+        d_adv_loss = self.backward_D_adv(
+                real_imgs=real_imgs, 
+                batch_size=self.batch_size, 
+                latent_size=self.latent_size, 
+                mixing=self.mixing, 
+                device=self.device
                 )
-        self.optimizer_D.step
+        self.optimizer_D.step()
 
         # apply r1 regularization to Discriminator
         if batch_idx % self.d_reg_every == 0:
             self.optimizer_D.zero_grad()
             self.r1_loss = self.backward_D_r1(
-                    real_imgs=data, r1=self.r1, d_reg_every=self.d_reg_every
+                    real_imgs=real_imgs, 
+                    r1=self.r1, 
+                    d_reg_every=self.d_reg_every
                     )
-            self.optimizer_D.step
+            self.optimizer_D.step()
         
         # update Generator
         self.optimizer_G.zero_grad()
-        self.g_adv_loss = self.backward_G_adv(
-                batch_size=self.batch_size, latent_size=self.latent_size, 
-                mixing=self.mixing, device=self.device
+        g_adv_loss = self.backward_G_adv(
+                batch_size=self.batch_size, 
+                latent_size=self.latent_size, 
+                mixing=self.mixing, 
+                device=self.device
                 )
-        self.optimizer_G.step
+        self.optimizer_G.step()
 
         # apply path length regularization to Generator
         if batch_idx % self.g_reg_every == 0:
             self.optimizer_G.zero_grad()
             self.path_loss, self.mean_path_length, self.path_lengths = self.backward_G_path(
-                    batch_size=self.batch_size, latent_size=self.latent_size, mixing=self.mixing,
-                    path_batch_shrink=self.path_batch_shrink, mean_path_length=self.mean_path_length, 
-                    path_regularize=self.path_regularize, device=self.device
+                    batch_size=self.batch_size, 
+                    latent_size=self.latent_size, 
+                    mixing=self.mixing,
+                    path_batch_shrink=self.path_batch_shrink, 
+                    mean_path_length=self.mean_path_length, 
+                    path_regularize=self.path_regularize, 
+                    g_reg_every=self.g_reg_every,
+                    device=self.device
                     )
-            self.optimizer_G.step
+            self.optimizer_G.step()
 
             # self.mean_path_length_avg = (reduce_sum(self.mean_path_length).item() / get_world_size())
 
-        losses = [self.d_adv_loss, 
+        losses = [d_adv_loss, 
                   self.r1_loss, 
-                  self.g_adv_loss, 
+                  g_adv_loss, 
                   self.path_loss,
-                  self.path_lengths,
+                  self.path_lengths.mean(),
                   self.mean_path_length]
 
-        return np.array(losses).astype(np.float32)
+        return np.array(losses)
         
     def train(self, data_loader):
         running_loss = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         time_list = []
 
         for batch_idx, data in enumerate(data_loader):
+
             # count time 1
             t1 = time.perf_counter()
 
             # get losses
             losses = self.optimize(batch_idx, data)
-            running_loss += losses
+            losses = losses.astype(np.float32)
+            running_loss = running_loss + losses
 
             # count time 2 
             t2 = time.perf_counter()
@@ -243,14 +258,14 @@ class StyleGAN2(object):
             time_list.append(get_processing_time)
 
             # print batch and processing time, when idx == 500 
-            if batch_idx % 500 == 0:
+            if batch_idx % 100 == 0:
                 print('batch: {} / elapsed_time: {} sec'.format(batch_idx, sum(time_list)))
                 time_list = []
 
         running_loss /= len(data_loader)
         return running_loss
 
-    def save_network(network, network_label, epoch_label):
+    def save_network(self, network, network_label, epoch_label):
         # path to files
         save_filename = '{}_net_{}.pth'.format(network_label, epoch_label)
         save_path = os.path.join(self.log_dir, save_filename)
@@ -261,7 +276,7 @@ class StyleGAN2(object):
         # return models to GPU
         network.to(self.device)
 
-    def load_network(network, network_label, epoch_label):
+    def load_network(self, network, network_label, epoch_label):
         # path to files
         load_filename = '{}_net_{}.pth'.format(network_label, epoch_label)
         load_path = os.path.join(self.log_dir, load_filename)
@@ -276,4 +291,17 @@ class StyleGAN2(object):
     def load(self, epoch_label):
         self.load_network(self.G, 'Generator', epoch_label)
         self.load_network(self.D, 'Discriminator', epoch_label)
+
+    def generate_imgs(self, epoch_label):
+        imgs = self.G([self.sample_z])
+        img_table_name = '{}.png'.format(epoch_label)
+        save_path = os.path.join(self.log_dir, img_table_name)
+
+        utils.save_image(
+            imgs,
+            save_path,
+            nrow=int(self.n_sample ** 0.5),
+            normalize=True,
+            range=(-1, 1),
+        )
 

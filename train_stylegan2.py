@@ -20,7 +20,7 @@ from model_stylegan2 import StyleGAN2
 
 def train(log_dir, device, gpu_ids, train_loader, num_epoch, num_epoch_resume, save_freq, 
           batch_size, n_sample, img_size, lr, r1, path_regularize, path_batch_shrink, 
-          g_reg_every, d_reg_every, mixing, mode_train):
+          g_reg_every, d_reg_every, mixing):
 
     model = StyleGAN2(
         log_dir=log_dir, 
@@ -35,14 +35,20 @@ def train(log_dir, device, gpu_ids, train_loader, num_epoch, num_epoch_resume, s
         path_batch_shrink=path_batch_shrink, 
         g_reg_every=g_reg_every, 
         d_reg_every=d_reg_every, 
-        mixing=mixing, 
-        mode_train=mode_train)
+        mixing=mixing,
+        )
+
+    print('here')
+
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
 
     if num_epoch_resume != 0:
         model.log_dir = log_dir
         print('load model: epoch {}...'.format(num_epoch_resume))
         model.load('epoch_' + str(num_epoch_resume))
 
+    # record logs
     writer = SummaryWriter(log_dir)
 
     for epoch in range(num_epoch):
@@ -64,25 +70,31 @@ def train(log_dir, device, gpu_ids, train_loader, num_epoch, num_epoch_resume, s
         writer.add_scalar('path_length', losses[4], epoch + 1 + num_epoch_resume)
         writer.add_scalar('mean_path_length', losses[5], epoch + 1 + num_epoch_resume)
 
+        # generate images during training
+        with torch.no_grad():
+            model.generate_imgs("epoch_" + str(epoch + 1 + num_epoch_resume))
+
+        # save models
         if (epoch + 1 + num_epoch_resume) % save_freq == 0:
             model.save('epoch_' + str(epoch + 1 + num_epoch_resume))
 
-    writer.export_scalars_to_json("./all_scalars.json")
+    save_path = os.path.join(log_dir, "all_scalars.json")
+    writer.export_scalars_to_json(save_path)
     writer.close()
-    ### tensorboard --logdir runs
+    ### "tensorboard --logdir runs"
 
 
 if __name__ == '__main__':
 
-    device = 'cuda:0'
+    device = 'cuda'
 
     parser = argparse.ArgumentParser(description='StyleGAN2 trainer')
 
     parser.add_argument(
-        'path_log', type=str, help='path to log of training details'
+        'path_dataset', type=str, help='path to your dataset, ex LMDB dataset'
     )
     parser.add_argument(
-        'path_dataset', type=str, help='path to your dataset, ex LMDB dataset'
+        '--path_log', type=str, default='logs', help='path to log of training details'
     )
     parser.add_argument(
         '--gpu_ids', nargs='+', type=int, default=[0, 1, 2, 3], help='GPU IDs for training'
@@ -91,10 +103,10 @@ if __name__ == '__main__':
         '--epoch', type=int, default=100, help='total training epochs'
     )
     parser.add_argument(
-        '--epoch_resume', type=int, default=0, help='epochs to resume training '
+        '--load_epoch', type=int, default=0, help='epochs to resume training '
     )
     parser.add_argument(
-        'save_freq', type=int, default=1, help='frequency of saving log'
+        '--save_freq', type=int, default=1, help='frequency of saving log'
     )
     parser.add_argument(
         '--batch_size', type=int, default=16, help='batch_size for training'
@@ -108,7 +120,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--img_size', type=int, default=256, help='image sizes for the model'
     )
-
     parser.add_argument(
         '--r1', type=float, default=10, help='weight of the r1 regularization'
     )
@@ -159,8 +170,7 @@ if __name__ == '__main__':
     )
     train_loader = data.DataLoader(
         dataset, 
-        batch_size=args.batch_size, 
-        num_workers=os.cpu_count(),
+        batch_size=args.batch_size,
         pin_memory=True,
         shuffle=True,
         drop_last=True,
@@ -171,8 +181,8 @@ if __name__ == '__main__':
           log_dir=args.path_log, 
           gpu_ids=args.gpu_ids, 
           train_loader=train_loader, 
-          num_epoch=args.num_epoch,
-          num_epoch_resume=args.num_epoch_resume,
+          num_epoch=args.epoch,
+          num_epoch_resume=args.load_epoch,
           save_freq=args.save_freq, 
           batch_size=args.batch_size, 
           n_sample=args.n_sample, 
@@ -184,7 +194,6 @@ if __name__ == '__main__':
           g_reg_every=args.g_reg_every, 
           d_reg_every=args.d_reg_every, 
           mixing=args.mixing, 
-          mode_train=True,
           )
 
 """

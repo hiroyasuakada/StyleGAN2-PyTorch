@@ -84,7 +84,7 @@ class PixelwiseNormalization(nn.Module):
         super().__init__()
 
     def forward(self, x):
-        x = x / torch.sqrt((x**2).mean(1, keepdim=True) + 1e-8)
+        x = x / torch.sqrt((x ** 2).mean(1, keepdim=True) + 1e-8)
         return x
 
 

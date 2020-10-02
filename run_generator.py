@@ -86,9 +86,11 @@ if __name__ == '__main__':
     N = num_images = num_H * num_W
     resolution = args.resolution
 
-    # prepare and save latents
+    # prepare latents
     latents = np.random.RandomState(5).randn(N, 512)
     latents = torch.from_numpy(latents.astype(np.float32))
+
+    # save latents
     with (Path(args.output_dir)/'used_latents.pkl').open('wb') as f:
         pickle.dump(latents, f)
     
@@ -101,7 +103,7 @@ if __name__ == '__main__':
         for i in range(0, N, args.batch_size):
             j = min(i + args.batch_size, N)
             z = latents[i:j].to(device)
-            img = generator(z)
+            img = generator([z])
             normalized = (img.clamp(-1, 1) + 1) / 2 * 255
             imgs[i:j] = normalized.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
             del z, img, normalized

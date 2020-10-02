@@ -3,7 +3,10 @@ import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import autograd
 
+import math
+import random
 import time
 from tensorboardX import SummaryWriter
 
@@ -20,7 +23,7 @@ from model_blocks import GeneratorMappingBlock, GeneratorSynthesisInputBlock, Ge
 
 
 class GeneratorMapping(nn.Module):
-    def __init__(self, latent_size=512, dlatent_size=512, mapping_layers=8, mapping_fmaps=512, 
+    def __init__(self, resolution=1024, latent_size=512, dlatent_size=512, mapping_layers=8, mapping_fmaps=512, 
                  mapping_lr=0.01, mapping_nonlinearity='lrelu', normalize_latents=True, **_kwargs):
 
         """
@@ -42,6 +45,9 @@ class GeneratorMapping(nn.Module):
         self.mapping_fmaps = mapping_fmaps
         self.normalize_latents = normalize_latents
 
+        self.resolution_log2 = int(np.log2(resolution))
+        self.n_latent = self.resolution_log2 * 2 - 2
+
         layers = []
 
         # build a first layer for pixel wise normalization
@@ -55,7 +61,7 @@ class GeneratorMapping(nn.Module):
             layers.append(GeneratorMappingBlock(in_fmaps=in_fmaps, out_fmaps=out_fmaps))
 
         # build a last layer for truncation trick
-        layers.append(TruncationTrick(num_target=10, threshold=0.7, out_num=18, dlatent_size=512))
+        layers.append(TruncationTrick(num_target=10, threshold=1.0, out_num=self.n_latent, dlatent_size=512))  # threshold=0.7
         
         self.blocks = nn.ModuleList(layers)
 
@@ -68,12 +74,17 @@ class GeneratorMapping(nn.Module):
         """
         Args:
             latents_in: First input: Latent vectors (Z) [minibatch, latent_size]. ex, [4, 512]
+            dlatents_out: Latent vectors (W) [N 18, D] = [4, 18, 512]
         """
 
         x = latents_in
+
         for i in range(len(self.blocks)):
             x = self.blocks[i](x)
-        return x
+
+        dlatents_out = x
+            
+        return dlatents_out
 
 
 class GeneratorSynthesis(nn.Module):
@@ -165,30 +176,50 @@ class Generator(nn.Module):
 
         super().__init__()
 
+        self.resolution_log2 = int(np.log2(resolution))
+        self.n_latent = self.resolution_log2 * 2 - 2
+
         ## synthetic rate for synthetic images / do not use this time
         # self.register_buffer('style_mixing_rate', torch.zeros((1,)))
 
         # set up sub networks
-        self.mapping_network = GeneratorMapping(latent_size=latent_size, dlatent_size=dlatent_size, **_kwargs)
+        self.mapping_network = GeneratorMapping(
+            resolution=resolution, 
+            latent_size=latent_size, 
+            dlatent_size=dlatent_size,
+             **_kwargs
+             )
         self.synthesis_network = GeneratorSynthesis(resolution=resolution, **_kwargs)
 
     def forward(self,latents_in, return_dlatents=False):
 
         """
         Args:
-            latents_in: First input: Latent vectors (Z) [minibatch, latent_size].
+            latents_in: First input: Latent vectors (Z) [minibatch, latent_size]. ([4, 512], [4, 512]) or [[4, 512]]
             return_dlatents: Return dlatents in addition to the images?
             (labels_in: Second input: Conditioning labels [minibatch, label_size].)
         Returns: images
         """
 
-        dlatents_in = self.mapping_network(latents_in)
+        dlatents_out = [self.mapping_network(latent) for latent in latents_in]
+
+        if len(dlatents_out) < 2:
+            dlatents_in = dlatents_out[0]
+        else:
+            inject_id = random.randint(1, self.n_latent - 1)
+            dlatents_out1 = dlatents_out[0][:, :inject_id]
+            dlatents_out2 = dlatents_out[1][:, inject_id:] 
+            dlatents_in = torch.cat([dlatents_out1, dlatents_out2], 1)
+
         imgs_out = self.synthesis_network(dlatents_in)
 
         if return_dlatents:
-            return imgs_out, dlatents_in
+            noise = torch.randn_like(imgs_out) / math.sqrt(imgs_out.shape[2] * imgs_out.shape[3])
+            grad, = autograd.grad(outputs=(imgs_out * noise).sum(), inputs=dlatents_in, create_graph=True)
+            return imgs_out, dlatents_in, grad
         else:
             return imgs_out
+
 
 
 class Discriminator(nn.Module):
@@ -266,8 +297,8 @@ if __name__ == '__main__':
     # ## mapping_network
     # g_mapping = GeneratorMapping().to('cuda:0')
     # print(g_mapping)
-    # test_latents_in = torch.randn(4, 512).to('cuda:0')
-    # test_dlatents_out = g_mapping(test_latents_in)
+    # noise = torch.randn(4, 512).to('cuda:0')
+    # test_dlatents_out = g_mapping(noise)
     # print('dlatents_out: {}'.format(test_dlatents_out.shape))  # [N 18, D] = [4, 18, 512]
     # # check params
     # params_0 = 0
@@ -290,12 +321,28 @@ if __name__ == '__main__':
     #         params_1 += p.numel()
     # print('params_0: {}'.format(params_1))
 
+    def mixing_noise(batch_size, latent_size, prob, device):
+        if prob > 0 and random.random() < prob:
+            noises = torch.randn(2, batch_size, latent_size, device=device).unbind(0)
+            return noises
+        else:
+            noise = torch.randn(batch_size, latent_size, device=device)  # 16, 512
+            return [noise]  # torch.tensor in list, [(torch.tensor), (torch.tensor), ...]
 
-    # # generator_network
-    # Gen = Generator().to('cuda:0')
-    # print(Gen)
-    # test_latents_in = torch.randn(4, 512).to('cuda:0')
-    # test_imgs_out = Gen(test_latents_in)
+    # generator_network
+    Gen = Generator(resolution=1024, latent_size=512).to('cuda:0')
+    print(Gen)
+
+    path_batch_size = max(1, 4 // 2)
+    noise = mixing_noise(path_batch_size, 512, 0.9, 'cuda:0')
+    fake_imgs, dlatents = Gen(noise, return_dlatents=True)
+
+    noise = torch.randn_like(fake_imgs) / math.sqrt(fake_imgs.shape[2] * fake_imgs.shape[3])
+    grad, = autograd.grad(outputs=(fake_imgs * noise).sum(), inputs=dlatents, create_graph=True)
+
+
+
+    print(grad)
     # print('imgs_out: {}'.format(test_imgs_out.shape))  # [4, 3, 1024, 1024]
     # # check params
     # params_Gen = 0
@@ -305,21 +352,19 @@ if __name__ == '__main__':
     # print('params_Gen: {}'.format(params_Gen))
 
 
-    # discriminator_network
-    Dis = Discriminator().to('cuda:0')
-    print(Dis)
-    test_imgs_in = torch.randn(4, 3, 1024, 1024).to('cuda:0')
-    print(test_imgs_in.shape)
-    out = Dis(test_imgs_in)
-    print('out: {}'.format(out.shape))
-    # check params
-    params_Dis = 0
-    for p in Dis.parameters():
-        if p.requires_grad:
-            params_Dis += p.numel()
-    print('params_Dis: {}'.format(params_Dis))
-
-
+    # # discriminator_network
+    # Dis = Discriminator().to('cuda:0')
+    # print(Dis)
+    # test_imgs_in = torch.randn(4, 3, 1024, 1024).to('cuda:0')
+    # print(test_imgs_in.shape)
+    # out = Dis(test_imgs_in)
+    # print('out: {}'.format(out.shape))
+    # # check params
+    # params_Dis = 0
+    # for p in Dis.parameters():
+    #     if p.requires_grad:
+    #         params_Dis += p.numel()
+    # print('params_Dis: {}'.format(params_Dis))
 
     # # check fmaps
     # fmap_base=16 << 10
@@ -339,3 +384,4 @@ if __name__ == '__main__':
     #     print('=============================')
 
     # print(nf(0))
+
