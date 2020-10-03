@@ -31,8 +31,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 
 - **stylegan2[official]**: https://github.com/NVlabs/stylegan2
 - **stylegan2-pytorch**: https://github.com/rosinality/stylegan2-pytorch
-- **pro_gan_pytorch**: https://github.com/akanimax/pro_gan_pytorch
-- **pytorch_style_gan**: https://github.com/lernapparat/lernapparat
+- **StyleGAN2.pytorch**: https://github.com/huangzh13/StyleGAN2.pytorch
 
 ## Thanks
 
