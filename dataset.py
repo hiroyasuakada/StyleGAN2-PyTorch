@@ -13,6 +13,7 @@ from io import BytesIO
 
 import lmdb
 from PIL import Image
+from torch.utils import data
 from torch.utils.data import Dataset
 import torch.distributed as dist
 from torchvision import transforms, utils

@@ -45,8 +45,6 @@ def train(log_dir, device, gpu_ids, train_loader, num_epoch, load_epoch, save_fr
         mixing=mixing,
         )
 
-    print('here')
-
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 
@@ -107,7 +105,7 @@ if __name__ == '__main__':
         '--gpu_ids', nargs='+', type=int, default=[0, 1, 2, 3], help='GPU IDs for training'
     )
     parser.add_argument(
-        '--epoch', type=int, default=100, help='total training epochs'
+        '--epoch', type=int, default=1000, help='total training epochs'
     )
     parser.add_argument(
         '--load_epoch', type=int, default=0, help='epochs to resume training '

@@ -5,6 +5,10 @@
    Date:         1, Oct, 2020
    Description:  Modified from 
                  https://github.com/rosinality/stylegan2-pytorch/blob/master/prepare_data.py
+
+    Usage:       python prepare_data.py --out LMDB_PATH --n_worker N_WORKER --size SIZE1,SIZE2,SIZE3,... DATASET_PATH
+        For Author:
+        python prepare_dataset.py --out lmdb_256_70000 --size 256 ----n_worker 4 /ffhq_1024
 -------------------------------------------------
 """
 

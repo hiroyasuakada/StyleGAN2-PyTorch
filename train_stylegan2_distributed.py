@@ -1,6 +1,16 @@
+"""
+usage:
+    base:
+        python3 -m torch.distributed.launch --nproc_per_node=N_GPU --master_port=PORT train.py --batch BATCH_SIZE LMDB_PATH
+        kill $(ps aux | grep (YOUR SCRIPT NAME.py) | grep -v grep | awk '{print $2}')
+
+    for author:
+        python3 -m torch.distributed.launch --nproc_per_node=4 train_stylegan2_distributed.py lmdb_ffhq_256 --path_log logs_distributed_B16_lr0.001
+        kill $(ps aux | grep train_stylegan2_distributed.py | grep -v grep | awk '{print $2}')
+"""
+
 import argparse
 import random
-
 import os
 import time
 import cv2
@@ -11,9 +21,8 @@ import torch
 import torch.nn as nn
 from torch.utils import data
 from torchvision import transforms
-from torchvision.utils import make_grid
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
+import wandb
 
 from dataset import MultiResolutionDataset, data_sampler
 from model_stylegan2_distributed import StyleGAN2
@@ -27,7 +36,7 @@ from distributed import (
 )
 
 
-def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, start_epoch, save_freq, 
+def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, load_epoch, save_freq, 
           batch_size, n_sample, img_size, lr, r1, path_regularize, path_batch_shrink, 
           g_reg_every, d_reg_every, mixing):
 
@@ -36,6 +45,7 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, sta
         device=device, 
         distributed=distributed,
         local_rank=local_rank,
+        load_epoch=load_epoch,
         batch_size=batch_size, 
         n_sample=n_sample, 
         img_size=img_size,
@@ -46,38 +56,35 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, sta
         g_reg_every=g_reg_every, 
         d_reg_every=d_reg_every, 
         mixing=mixing,
-        )
+    )
 
     # create a directory for logs
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 
-    # resume training
-    if start_epoch != 0:
-        model.log_dir = log_dir
-        print('load model: epoch {}...'.format(start_epoch))
-        model.load('epoch_' + str(start_epoch))
-
     # show progress bar
-    pbar = range(num_epoch)
+    pbar1 = range(num_epoch)
+
     if get_rank() == 0:
-        pbar = tqdm(pbar, intial=start_epoch, dynamic_ncols=True, smoothing=0.01)
+        pbar1 = tqdm(
+            pbar1, 
+            initial=load_epoch, 
+            dynamic_ncols=True, 
+            smoothing=0.01, 
+            unit='epoch',
+            position=1
+        )
 
-    for epoch in pbar:
-        print('epoch {} started'.format(epoch + 1 + start_epoch))
-        t1 = time.perf_counter()
+    for epoch in pbar1:
 
-        loss_val_mean = model.train(train_loader)
+        current_training_epoch = epoch + 1 + load_epoch
 
-        t2 = time.perf_counter()
-        get_processing_time = t2 - t1
-
-        print('epoch: {}, elapsed_time: {:.2f}} sec losses: {}'.format(
-            epoch + 1 + start_epoch, get_processing_time, losses))
+        loss_val_mean = model.train(current_training_epoch, train_loader)
 
         if get_rank() == 0:
-            # set description for pbar
-            pbar.set_description(
+
+            # set description for pbar1
+            pbar1.set_description(
                 (
                     f'd: {loss_val_mean[0]:.4f}; ' 
                     f'r1: {loss_val_mean[1]:.4f}; '
@@ -88,6 +95,10 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, sta
                 )
             )
 
+            # generate images during training
+            with torch.no_grad():
+                imgs = model.generate_imgs("epoch_" + str(current_training_epoch), return_imgs=True)
+
             # record logs       
             wandb.log(
                 {
@@ -97,16 +108,13 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, sta
                     'path_loss': loss_val_mean[3],
                     'path_lengths': loss_val_mean[4],
                     'mean_path_length': loss_val_mean[5],
+                    'generated_images': [wandb.Image(imgs, caption='epoch: {}'.format(current_training_epoch))]
                 }
             )
 
-            # generate images during training
-            with torch.no_grad():
-                model.generate_imgs("epoch_" + str(epoch + 1 + start_epoch))
-
             # save models
-            if (epoch + 1 + start_epoch) % save_freq == 0:
-                model.save('epoch_' + str(epoch + 1 + start_epoch))
+            if current_training_epoch % save_freq == 0:
+                model.save('epoch_' + str(current_training_epoch))
 
 
 if __name__ == '__main__':
@@ -122,22 +130,19 @@ if __name__ == '__main__':
         '--path_log', type=str, default='logs', help='path to log of training details'
     )
     parser.add_argument(
-        '--gpu_ids', nargs='+', type=int, default=[0, 1, 2, 3], help='GPU IDs for training'
+        '--num_epoch', type=int, default=400, help='total training epochs'
     )
     parser.add_argument(
-        '--epoch', type=int, default=100, help='total training epochs'
-    )
-    parser.add_argument(
-        '--start_epoch', type=int, default=0, help='epochs to resume training '
+        '--load_epoch', type=int, default=0, help='epochs to resume training '
     )
     parser.add_argument(
         '--save_freq', type=int, default=1, help='frequency of saving log'
     )
     parser.add_argument(
-        '--batch_size', type=int, default=16, help='batch_size for training'
+        '--batch_size', type=int, default=4, help='batch_size for each gpu'
     )
     parser.add_argument(
-        '--lr', type=int, default=0.001, help='learning rate'  # if 8 gpus, lr=0.002 and batch=32
+        '--lr', type=int, default=0.0005, help='learning rate'  # if 8 gpus, lr=0.002 and batch=32
     )
     parser.add_argument(
         '--n_sample', type=int, default=16, help ='the number of imgs generated during training'
@@ -209,8 +214,7 @@ if __name__ == '__main__':
     train_loader = data.DataLoader(
         dataset, 
         batch_size=args.batch_size,
-        sampler=data_sampler(dataset, shuffle=True, distributed=args.distributed)
-        pin_memory=True,
+        sampler=data_sampler(dataset, shuffle=True, distributed=args.distributed),
         drop_last=True,
     )
 
@@ -224,8 +228,8 @@ if __name__ == '__main__':
         local_rank=args.local_rank, 
         log_dir=args.path_log, 
         train_loader=train_loader, 
-        num_epoch=args.epoch,
-        start_epoch=args.start_epoch,
+        num_epoch=args.num_epoch,
+        load_epoch=args.load_epoch,
         save_freq=args.save_freq, 
         batch_size=args.batch_size, 
         n_sample=args.n_sample, 

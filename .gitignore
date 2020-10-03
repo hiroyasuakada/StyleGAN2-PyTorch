@@ -1,11 +1,5 @@
-/original_implementation_by_tf/stylegan2-ffhq-config-f.pkl
-/original_implementation_by_tf/stylegan2_ndarray.pkl
-/original_implementation_by_tf/stylegan2_state_dict.pth
-/original_implementation_by_tf/stylegan2
-/generated_imgs/latents2.pkl
-/ffhq_1024_flattened
-/ffhq_1024r_0_10000
 /lmdb_ffhq_256
 /test_lmdb
 /test
+/ffhq_r1024
 

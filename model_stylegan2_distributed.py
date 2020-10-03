@@ -3,6 +3,7 @@ import random
 import math
 import os
 import wandb
+from PIL import Image
 
 import numpy as np
 import cv2
@@ -13,8 +14,9 @@ from torch import autograd
 from torch.utils import data
 import torch.distributed as dist
 from torchvision import utils 
+from tqdm import tqdm
 
-from model_networks import Generator, Discriminator
+from model_networks_distributed import Generator, Discriminator
 from dataset import Dataset
 
 from distributed import (
@@ -32,7 +34,7 @@ from distributed import (
 
 
 class StyleGAN2(object):
-    def __init__(self, log_dir='logs', device='cuda', distributed=True, local_rank=0, 
+    def __init__(self, log_dir='logs', device='cuda', distributed=True, local_rank=0, load_epoch=0, 
                  batch_size=16, n_sample=16, img_size=1024, lr=0.001, r1=10, 
                  path_regularize=2, path_batch_shrink=2, 
                  g_reg_every=4, d_reg_every=16, mixing=0.9):
@@ -46,6 +48,9 @@ class StyleGAN2(object):
         self.log_dir = log_dir
         self.device = device
         print(torch.cuda.is_available())
+        self.distributed = distributed
+        self.local_rank = local_rank
+        self.load_epoch = load_epoch
         
         self.r1 = r1
         self.lr = lr
@@ -57,6 +62,7 @@ class StyleGAN2(object):
         self.mixing = mixing
 
         # prepare samples to generate images during training
+        self.accum = 0.5 ** (32 / (10 * 1000))
         self.sample_z = torch.randn(self.n_sample, self.latent_size, device=self.device)
     
         # initialize loss functions and so on
@@ -65,12 +71,33 @@ class StyleGAN2(object):
         self.path_lengths = torch.tensor(0.0, device=self.device)
         self.mean_path_length = 0
         self.mean_path_length_avg = 0
-        loss_dict = {}
+        self.loss_dict = {}
                
         # load networks
         self.G = Generator(resolution=self.img_size, latent_size=self.latent_size).to(self.device)
         self.D = Discriminator(resolution=self.img_size).to(self.device)
-        self.G_imgs(resolution=self.img_size, latent_size=self.latent_size).to(self.device)
+
+        # optimize params for G and D
+        g_reg_ratio = g_reg_every / (g_reg_every + 1)
+        d_reg_ratio = d_reg_every / (d_reg_every + 1)
+
+        self.optimizer_G = torch.optim.Adam(
+            self.G.parameters(), 
+            lr=self.lr * g_reg_ratio, 
+            betas=(0 ** g_reg_ratio, 0.99 ** g_reg_ratio)
+        )
+        self.optimizer_D = torch.optim.Adam(
+            self.D.parameters(), 
+            lr=self.lr * d_reg_ratio, 
+            betas=(0 ** d_reg_ratio, 0.99 ** d_reg_ratio)
+        )
+
+        # load past models
+        if self.load_epoch != 0:
+            self.load('epoch_' + str(self.load_epoch))
+
+            if get_rank() == 0:
+                print('load model: num_epoch {}...'.format(self.load_epoch))
 
         # set multi-GPUs
         if distributed:
@@ -93,21 +120,6 @@ class StyleGAN2(object):
         else:
             self.G_module = self.G
             self.D_module = self.D
-        
-        # optimize params for G and D
-        g_reg_ratio = g_reg_every / (g_reg_every + 1)
-        d_reg_ratio = d_reg_every / (d_reg_every + 1)
-
-        self.optimizer_G = torch.optim.Adam(
-            self.G.parameters(), 
-            lr=self.lr * g_reg_ratio, 
-            betas=(0 ** g_reg_ratio, 0.99 ** g_reg_ratio)
-        )
-        self.optimizer_D = torch.optim.Adam(
-            self.D.parameters(), 
-            lr=self.lr * d_reg_ratio, 
-            betas=(0 ** d_reg_ratio, 0.99 ** d_reg_ratio)
-        )
 
     def requires_grad(self, model, flag=True):
         for p in model.parameters():
@@ -196,7 +208,6 @@ class StyleGAN2(object):
 
         g_weighted_path_loss = path_regularize * g_reg_every * path_loss
 
-        # reduce
         if path_batch_shrink:
             g_weighted_path_loss += 0 * fake_imgs[0, 0, 0, 0]
 
@@ -256,13 +267,13 @@ class StyleGAN2(object):
 
             self.mean_path_length_avg = (reduce_sum(self.mean_path_length).item() / get_world_size())
         
-        loss_dict['d_adv_loss'] = d_adv_loss
-        loss_dict['r1_loss'] = self.r1_loss
-        loss_dict['g_adv_loss'] = g_adv_loss
-        loss_dict['path_loss'] = self.path_loss
-        loss_dict['path_lengths'] = self.path_lengths.mean()
+        self.loss_dict['d_adv_loss'] = d_adv_loss
+        self.loss_dict['r1_loss'] = self.r1_loss
+        self.loss_dict['g_adv_loss'] = g_adv_loss
+        self.loss_dict['path_loss'] = self.path_loss
+        self.loss_dict['path_lengths'] = self.path_lengths.mean()
 
-        loss_reduced = reduced_loss_dict(loss_dict)            
+        loss_reduced = reduce_loss_dict(self.loss_dict)            
 
         d_adv_loss_val = loss_reduced["d_adv_loss"].mean().item()
         r1_loss_val = loss_reduced["r1_loss"].mean().item()
@@ -281,39 +292,51 @@ class StyleGAN2(object):
 
         return loss_val_mean
         
-    def train(self, data_loader):
-        time_list = []
+    def train(self, epoch, data_loader):
 
-        for batch_idx, data in enumerate(data_loader):
+        pbar2 = data_loader
 
-            # count time 1
-            t1 = time.perf_counter()
+        if get_rank() == 0:
+            pbar2 = tqdm(
+                pbar2,
+                dynamic_ncols=True, 
+                smoothing=0.01, 
+                unit='batch',
+                postfix='current training epoch: ' + str(epoch),
+                position=0
+            )
+
+        for batch_idx, data in enumerate(pbar2):
 
             # get losses
             loss_val_mean = self.optimize(batch_idx, data)
 
-            # count time 2 
-            t2 = time.perf_counter()
-            get_processing_time = t2 - t1
-            time_list.append(get_processing_time)
+            if get_rank() == 0:
+                # update pbar2
+                pbar2.update(1)
 
-            # print batch and processing time, when idx == 500 
-            if batch_idx % 100 == 0:
-                print('batch: {} / elapsed_time: {:.2f} sec'.format(batch_idx, sum(time_list)))
-                time_list = []
+                # set description for pbar2
+                pbar2.set_description(
+                    (
+                        f'd: {loss_val_mean[0]:.4f}; ' 
+                        f'r1: {loss_val_mean[1]:.4f}; '
+                        f'g: {loss_val_mean[2]:.4f}; ' 
+                        f'path: {loss_val_mean[3]:.4f}; '
+                        f'path_lengths: {loss_val_mean[4]:.4f}; '
+                        f'mean path: {loss_val_mean[5]:.4f}; '
+                    )
+                )
 
-        return loss_val_mean
+        if get_rank() == 0:
+            return loss_val_mean
 
     def save_network(self, network, network_label, epoch_label):
         # path to files
         save_filename = '{}_net_{}.pth'.format(network_label, epoch_label)
         save_path = os.path.join(self.log_dir, save_filename)
 
-        # save models on CPU
-        torch.save(network.cpu().state_dict(), save_path)
-
-        # return models to GPU
-        network.to(self.device)
+        # save models
+        torch.save(network.state_dict(), save_path)
 
     def load_network(self, network, network_label, epoch_label):
         # path to files
@@ -321,28 +344,48 @@ class StyleGAN2(object):
         load_path = os.path.join(self.log_dir, load_filename)
 
         # load models
-        network.load_state_dict(torch.load(load_path))
+        checkpoint = torch.load(load_path, map_location=lambda storage, loc: storage)
+        network.load_state_dict(checkpoint)
+
+        del checkpoint  # dereference seems crucial
+        torch.cuda.empty_cache()
 
     def save(self, epoch_label):
         self.save_network(self.G_module, 'Generator', epoch_label)
         self.save_network(self.D_module, 'Discriminator', epoch_label)
-        self.save_network(self.G_imgs, 'Generator_imgs', epoch_label)
 
     def load(self, epoch_label):
-        self.load_network(self.G_module, 'Generator', epoch_label)
-        self.load_network(self.D_module, 'Discriminator', epoch_label)
-        self.load_network(self.G_imgs, 'Generator_imgs', epoch_label)
+        self.load_network(self.G, 'Generator', epoch_label)
+        self.load_network(self.D, 'Discriminator', epoch_label)
 
-    def generate_imgs(self, epoch_label):
-        imgs = self.G_imgs([self.sample_z])
+    def generate_imgs(self, epoch_label, return_imgs=False):
+        imgs = self.G_module([self.sample_z])
         img_table_name = '{}.png'.format(epoch_label)
         save_path = os.path.join(self.log_dir, img_table_name)
 
-        utils.save_image(
-            imgs,
-            save_path,
-            nrow=int(self.n_sample ** 0.5),
-            normalize=True,
-            range=(-1, 1),
-        )
+        # save and return images
+        if return_imgs:
+            grid = utils.make_grid(
+                imgs, 
+                nrow=int(self.n_sample ** 0.5), 
+                normalize=True, 
+                range=(-1, 1),
+            )
+            # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
+            ndarr = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
+            im = Image.fromarray(ndarr)
+            im.save(save_path)
+            return imgs
+
+        # only save images
+        else:
+            utils.save_image(
+                imgs,
+                save_path,
+                nrow=int(self.n_sample ** 0.5),
+                normalize=True,
+                range=(-1, 1),
+            )
+
+
 
