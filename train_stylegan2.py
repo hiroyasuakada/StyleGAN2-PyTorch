@@ -1,6 +1,16 @@
+"""
+usage:
+    base:
+        python3 -m torch.distributed.launch --nproc_per_node=N_GPU --master_port=PORT train.py --batch BATCH_SIZE LMDB_PATH
+        kill $(ps aux | grep (YOUR SCRIPT NAME.py) | grep -v grep | awk '{print $2}')
+
+    for author:
+        python3 -m torch.distributed.launch --nproc_per_node=4 train_stylegan2_distributed.py lmdb_ffhq_256 --path_log logs_distributed_B16_lr0.001
+        kill $(ps aux | grep train_stylegan2_distributed.py | grep -v grep | awk '{print $2}')
+"""
+
 import argparse
 import random
-
 import os
 import time
 import cv2
@@ -11,8 +21,8 @@ import torch
 import torch.nn as nn
 from torch.utils import data
 from torchvision import transforms
-from torchvision.utils import make_grid
-from tensorboardX import SummaryWriter
+from tqdm import tqdm
+import wandb
 
 from dataset import MultiResolutionDataset, data_sampler
 from model_stylegan2 import StyleGAN2
@@ -25,14 +35,17 @@ from distributed import (
     get_world_size,
 )
 
-def train(log_dir, device, gpu_ids, train_loader, num_epoch, load_epoch, save_freq, 
+
+def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, load_epoch, save_freq, 
           batch_size, n_sample, img_size, lr, r1, path_regularize, path_batch_shrink, 
           g_reg_every, d_reg_every, mixing):
 
     model = StyleGAN2(
         log_dir=log_dir, 
         device=device, 
-        gpu_ids=gpu_ids, 
+        distributed=distributed,
+        local_rank=local_rank,
+        load_epoch=load_epoch,
         batch_size=batch_size, 
         n_sample=n_sample, 
         img_size=img_size,
@@ -43,50 +56,65 @@ def train(log_dir, device, gpu_ids, train_loader, num_epoch, load_epoch, save_fr
         g_reg_every=g_reg_every, 
         d_reg_every=d_reg_every, 
         mixing=mixing,
-        )
+    )
 
+    # create a directory for logs
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 
-    if load_epoch != 0:
-        model.log_dir = log_dir
-        print('load model: epoch {}...'.format(load_epoch))
-        model.load('epoch_' + str(load_epoch))
+    # show progress bar
+    pbar1 = range(num_epoch)
 
-    # record logs
-    writer = SummaryWriter(log_dir)
+    if get_rank() == 0:
+        pbar1 = tqdm(
+            pbar1, 
+            initial=load_epoch, 
+            dynamic_ncols=True, 
+            smoothing=0.01, 
+            unit='epoch',
+            position=1
+        )
 
-    for epoch in range(num_epoch):
-        print('epoch {} started'.format(epoch + 1 + load_epoch))
-        t1 = time.perf_counter()
+    for epoch in pbar1:
 
-        losses = model.train(train_loader)
+        current_training_epoch = epoch + 1 + load_epoch
 
-        t2 = time.perf_counter()
-        get_processing_time = t2 - t1
+        loss_val_mean = model.train(current_training_epoch, train_loader)
 
-        print('epoch: {}, elapsed_time: {} sec losses: {}'.format(
-            epoch + 1 + load_epoch, get_processing_time, losses))
+        if get_rank() == 0:
 
-        writer.add_scalar('loss_d', losses[0], epoch + 1 + load_epoch)
-        writer.add_scalar('loss_r1', losses[1], epoch + 1 + load_epoch)
-        writer.add_scalar('loss_g', losses[2], epoch + 1 + load_epoch)
-        writer.add_scalar('loss_path', losses[3], epoch + 1 + load_epoch)
-        writer.add_scalar('path_length', losses[4], epoch + 1 + load_epoch)
-        writer.add_scalar('mean_path_length', losses[5], epoch + 1 + load_epoch)
+            # set description for pbar1
+            pbar1.set_description(
+                (
+                    f'd: {loss_val_mean[0]:.4f}; ' 
+                    f'r1: {loss_val_mean[1]:.4f}; '
+                    f'g: {loss_val_mean[2]:.4f}; ' 
+                    f'path: {loss_val_mean[3]:.4f}; '
+                    f'path_lengths: {loss_val_mean[4]:.4f}; '
+                    f'mean path: {loss_val_mean[5]:.4f}; '
+                )
+            )
 
-        # generate images during training
-        with torch.no_grad():
-            model.generate_imgs("epoch_" + str(epoch + 1 + load_epoch))
+            # generate images during training
+            with torch.no_grad():
+                imgs = model.generate_imgs("epoch_" + str(current_training_epoch), return_imgs=True)
 
-        # save models
-        if (epoch + 1 + load_epoch) % save_freq == 0:
-            model.save('epoch_' + str(epoch + 1 + load_epoch))
+            # record logs       
+            wandb.log(
+                {
+                    'd_adv_loss': loss_val_mean[0],
+                    'r1_loss': loss_val_mean[1],
+                    'g_adv_loss': loss_val_mean[2],
+                    'path_loss': loss_val_mean[3],
+                    'path_lengths': loss_val_mean[4],
+                    'mean_path_length': loss_val_mean[5],
+                    'generated_images': [wandb.Image(imgs, caption='epoch: {}'.format(current_training_epoch))]
+                }
+            )
 
-    save_path = os.path.join(log_dir, "all_scalars.json")
-    writer.export_scalars_to_json(save_path)
-    writer.close()
-    ### "tensorboard --logdir runs"
+            # save models
+            if current_training_epoch % save_freq == 0:
+                model.save('epoch_' + str(current_training_epoch))
 
 
 if __name__ == '__main__':
@@ -96,16 +124,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='StyleGAN2 trainer')
 
     parser.add_argument(
-        'path_dataset', type=str, help='path to your dataset, ex LMDB dataset'
+        'path_dataset', type=str, help='path to your lmdb dataset'
     )
     parser.add_argument(
         '--path_log', type=str, default='logs', help='path to log of training details'
     )
     parser.add_argument(
-        '--gpu_ids', nargs='+', type=int, default=[0, 1, 2, 3], help='GPU IDs for training'
-    )
-    parser.add_argument(
-        '--epoch', type=int, default=1000, help='total training epochs'
+        '--num_epoch', type=int, default=400, help='total training epochs'
     )
     parser.add_argument(
         '--load_epoch', type=int, default=0, help='epochs to resume training '
@@ -114,10 +139,10 @@ if __name__ == '__main__':
         '--save_freq', type=int, default=1, help='frequency of saving log'
     )
     parser.add_argument(
-        '--batch_size', type=int, default=16, help='batch_size for training'
+        '--batch_size', type=int, default=4, help='batch_size for each gpu'
     )
     parser.add_argument(
-        '--lr', type=int, default=0.001, help='learning rate'  # if 8 gpus, lr=0.002 and batch=32
+        '--lr', type=int, default=0.0005, help='learning rate'  # if 8 gpus, lr=0.002 and batch=32
     )
     parser.add_argument(
         '--n_sample', type=int, default=16, help ='the number of imgs generated during training'
@@ -153,6 +178,10 @@ if __name__ == '__main__':
         "--mixing", type=float, default=0.9, help="probability of latent code mixing"
     )
 
+    parser.add_argument(
+        "--local_rank", type=int, default=0, help="local rank for distributed training"
+    )
+
     args = parser.parse_args()
 
     # random seeds
@@ -160,7 +189,16 @@ if __name__ == '__main__':
     np.random.seed(1234)
     random.seed(1234)
 
-    # dataset
+    # configs of distributed computing
+    n_gpu = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
+    args.distributed = n_gpu > 1
+
+    if args.distributed:
+        torch.cuda.set_device(args.local_rank)
+        torch.distributed.init_process_group(backend="nccl", init_method="env://")
+        synchronize()
+
+    # prepare dataset
     transform = transforms.Compose(
         [
             transforms.RandomHorizontalFlip(),
@@ -176,30 +214,34 @@ if __name__ == '__main__':
     train_loader = data.DataLoader(
         dataset, 
         batch_size=args.batch_size,
-        pin_memory=True,
-        shuffle=True,
+        sampler=data_sampler(dataset, shuffle=True, distributed=args.distributed),
         drop_last=True,
     )
 
+    if get_rank() == 0:
+        wandb.init(project="stylegan2-by-PyTroch")
+
     # train
-    train(device=device, 
-          log_dir=args.path_log, 
-          gpu_ids=args.gpu_ids, 
-          train_loader=train_loader, 
-          num_epoch=args.epoch,
-          load_epoch=args.load_epoch,
-          save_freq=args.save_freq, 
-          batch_size=args.batch_size, 
-          n_sample=args.n_sample, 
-          img_size=args.img_size,
-          lr=args.lr, 
-          r1=args.r1, 
-          path_regularize=args.path_regularize, 
-          path_batch_shrink=args.path_batch_shrink, 
-          g_reg_every=args.g_reg_every, 
-          d_reg_every=args.d_reg_every, 
-          mixing=args.mixing, 
-          )
+    train(
+        device=device, 
+        distributed=args.distributed,
+        local_rank=args.local_rank, 
+        log_dir=args.path_log, 
+        train_loader=train_loader, 
+        num_epoch=args.num_epoch,
+        load_epoch=args.load_epoch,
+        save_freq=args.save_freq, 
+        batch_size=args.batch_size, 
+        n_sample=args.n_sample, 
+        img_size=args.img_size,
+        lr=args.lr, 
+        r1=args.r1, 
+        path_regularize=args.path_regularize, 
+        path_batch_shrink=args.path_batch_shrink, 
+        g_reg_every=args.g_reg_every, 
+        d_reg_every=args.d_reg_every, 
+        mixing=args.mixing, 
+        )
 
 """
 Tips for faster training:

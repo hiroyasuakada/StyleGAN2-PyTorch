@@ -214,8 +214,9 @@ class Generator(nn.Module):
         imgs_out = self.synthesis_network(dlatents_in)
 
         if return_dlatents:
-            return imgs_out, dlatents_in
-            
+            noise = torch.randn_like(imgs_out) / math.sqrt(imgs_out.shape[2] * imgs_out.shape[3])
+            grad, = autograd.grad(outputs=(imgs_out * noise).sum(), inputs=dlatents_in, create_graph=True)
+            return imgs_out, dlatents_in, grad
         else:
             return imgs_out
 
