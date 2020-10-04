@@ -15,6 +15,7 @@ from torch.utils import data
 import torch.distributed as dist
 from torchvision import utils 
 from tqdm import tqdm
+import wandb
 
 from model_networks import Generator, Discriminator
 from dataset import Dataset
@@ -62,7 +63,6 @@ class StyleGAN2(object):
         self.mixing = mixing
 
         # prepare samples to generate images during training
-        self.accum = 0.5 ** (32 / (10 * 1000))
         self.sample_z = torch.randn(self.n_sample, self.latent_size, device=self.device)
     
         # initialize loss functions and so on
@@ -273,15 +273,17 @@ class StyleGAN2(object):
         self.loss_dict['path_loss'] = self.path_loss
         self.loss_dict['path_lengths'] = self.path_lengths.mean()
 
+        # average values among GPUs
         loss_reduced = reduce_loss_dict(self.loss_dict)            
 
+        # average values among Batch
         d_adv_loss_val = loss_reduced["d_adv_loss"].mean().item()
         r1_loss_val = loss_reduced["r1_loss"].mean().item()
         g_adv_loss_val = loss_reduced["g_adv_loss"].mean().item()
         path_loss_val = loss_reduced["path_loss"].mean().item()
-        path_lengths_val = loss_reduced["path_lengths"].mean().item()
+        path_lengths_val = loss_reduced["path_lengths"].mean().item() 
 
-        loss_val_mean = [
+        loss_val = [
             d_adv_loss_val,
             r1_loss_val,
             g_adv_loss_val,
@@ -290,7 +292,7 @@ class StyleGAN2(object):
             self.mean_path_length_avg
         ]
 
-        return loss_val_mean
+        return np.array(loss_val)
         
     def train(self, epoch, data_loader):
 
@@ -306,10 +308,12 @@ class StyleGAN2(object):
                 position=0
             )
 
+            running_loss = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
         for batch_idx, data in enumerate(pbar2):
 
             # get losses
-            loss_val_mean = self.optimize(batch_idx, data)
+            loss_val = self.optimize(batch_idx, data)
 
             if get_rank() == 0:
                 # update pbar2
@@ -318,17 +322,32 @@ class StyleGAN2(object):
                 # set description for pbar2
                 pbar2.set_description(
                     (
-                        f'd: {loss_val_mean[0]:.4f}; ' 
-                        f'r1: {loss_val_mean[1]:.4f}; '
-                        f'g: {loss_val_mean[2]:.4f}; ' 
-                        f'path: {loss_val_mean[3]:.4f}; '
-                        f'path_lengths: {loss_val_mean[4]:.4f}; '
-                        f'mean path: {loss_val_mean[5]:.4f}; '
+                        f'd_b: {loss_val[0]:.4f}; ' 
+                        f'r1_b: {loss_val[1]:.4f}; '
+                        f'g_b: {loss_val[2]:.4f}; ' 
+                        f'path_b: {loss_val[3]:.4f}; '
+                        f'path_lengths_b: {loss_val[4]:.4f}; '
+                        f'mean path_b: {loss_val[5]:.4f}; '
                     )
                 )
 
+                # record logs at a batch level       
+                wandb.log(
+                    {
+                        'd_adv_loss_batch': loss_val[0],
+                        'r1_loss_batch': loss_val[1],
+                        'g_adv_loss_batch': loss_val[2],
+                        'path_loss_batch': loss_val[3],
+                        'path_lengths_batch': loss_val[4],
+                        'mean_path_length_batch': loss_val[5],
+                    }
+                )
+
+                running_loss += loss_val
+
         if get_rank() == 0:
-            return loss_val_mean
+            running_loss /= len(data_loader)
+            return running_loss
 
     def save_network(self, network, network_label, epoch_label):
         # path to files

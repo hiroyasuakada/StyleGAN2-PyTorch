@@ -15,7 +15,7 @@ import dnnlib
 from tempfile import TemporaryDirectory
 
 from model_stylegan2 import Generator
-from weights_converter_from_tf_to_pt import WeightsConverter
+from weights_conversion import WeightsConverter
 
 
 # initialize tensorflow
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         config = dnnlib.SubmitConfig()
         config.local.do_not_copy_source_files   = True
         config.run_dir_root                     = dir_name
-        dnnlib.submit_run(config, 'run_weights_converter.convert_from_tf_to_np', args=args, src=src)
+        dnnlib.submit_run(config, 'convert_weights.convert_from_tf_to_np', args=args, src=src)
 
     # build model
     print('\n build models... \n')

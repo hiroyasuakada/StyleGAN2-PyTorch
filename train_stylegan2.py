@@ -5,7 +5,7 @@ usage:
         kill $(ps aux | grep (YOUR SCRIPT NAME.py) | grep -v grep | awk '{print $2}')
 
     for author:
-        python3 -m torch.distributed.launch --nproc_per_node=4 train_stylegan2_distributed.py lmdb_ffhq_256 --path_log logs_distributed_B16_lr0.001
+        python3 -m torch.distributed.launch --nproc_per_node=4 train_stylegan2.py lmdb_ffhq_r256_70000 --path_log logs_b4_lr0.0005
         kill $(ps aux | grep train_stylegan2_distributed.py | grep -v grep | awk '{print $2}')
 """
 
@@ -79,19 +79,19 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, loa
 
         current_training_epoch = epoch + 1 + load_epoch
 
-        loss_val_mean = model.train(current_training_epoch, train_loader)
+        running_loss_epoch = model.train(current_training_epoch, train_loader)
 
         if get_rank() == 0:
 
             # set description for pbar1
             pbar1.set_description(
                 (
-                    f'd: {loss_val_mean[0]:.4f}; ' 
-                    f'r1: {loss_val_mean[1]:.4f}; '
-                    f'g: {loss_val_mean[2]:.4f}; ' 
-                    f'path: {loss_val_mean[3]:.4f}; '
-                    f'path_lengths: {loss_val_mean[4]:.4f}; '
-                    f'mean path: {loss_val_mean[5]:.4f}; '
+                    f'd_e: {running_loss_epoch[0]:.4f}; ' 
+                    f'r1_e: {running_loss_epoch[1]:.4f}; '
+                    f'g_e: {running_loss_epoch[2]:.4f}; ' 
+                    f'path_e: {running_loss_epoch[3]:.4f}; '
+                    f'path_lengths_e: {running_loss_epoch[4]:.4f}; '
+                    f'mean path_e: {running_loss_epoch[5]:.4f}; '
                 )
             )
 
@@ -99,16 +99,17 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, loa
             with torch.no_grad():
                 imgs = model.generate_imgs("epoch_" + str(current_training_epoch), return_imgs=True)
 
-            # record logs       
+            # record logs at an epoch level
             wandb.log(
                 {
-                    'd_adv_loss': loss_val_mean[0],
-                    'r1_loss': loss_val_mean[1],
-                    'g_adv_loss': loss_val_mean[2],
-                    'path_loss': loss_val_mean[3],
-                    'path_lengths': loss_val_mean[4],
-                    'mean_path_length': loss_val_mean[5],
-                    'generated_images': [wandb.Image(imgs, caption='epoch: {}'.format(current_training_epoch))]
+                    'd_adv_loss_epoch': running_loss_epoch[0],
+                    'r1_loss_epoch': running_loss_epoch[1],
+                    'g_adv_loss_epoch': running_loss_epoch[2],
+                    'path_loss_epoch': running_loss_epoch[3],
+                    'path_lengths_epoch': running_loss_epoch[4],
+                    'mean_path_length_epoch': running_loss_epoch[5],
+                    'generated_images_epoch': [wandb.Image(imgs, caption='epoch: {}'.format(current_training_epoch))],
+                    'epoch': epoch
                 }
             )
 
