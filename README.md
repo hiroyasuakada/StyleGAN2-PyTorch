@@ -20,7 +20,9 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - NVIDIA drivers, CUDA 10.0 toolkit and cuDNN 7.5
 - Python 3.6, PyTorch 1.6 (For more info, [requirements.txt](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/requirements.txt))
 
-    pip install -r requirements.txt
+        pip3 install -r requirements.txt
+
+- For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile).
 
 
 ## Usage
