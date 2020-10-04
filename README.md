@@ -32,7 +32,7 @@ To use the official pre-trained models, we need to convert its pre-trained weigh
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
         
-and then move to original_implementation_by_tf folder.
+and then move to > original_implementation_by_tf folder.
 
         cd stylegan2-by-pytorch/original_implementation_by_tf
 
