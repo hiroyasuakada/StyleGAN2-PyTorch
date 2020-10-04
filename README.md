@@ -27,6 +27,10 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 # Usage
 ## Use Pre-Trained Models from Official Implementation
 
+### 1. Download [official github repository]()
+
+
+
         python3 convert_weights.py
         
         
