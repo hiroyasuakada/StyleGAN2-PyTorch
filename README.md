@@ -25,16 +25,28 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
 # Usage
-## Prepare Dataset
-prepare_data.py in 
+## ① Use Pre-Trained Models from Official Implementation
+To use the official pre-trained models, we need to convert its pre-trained weights of Tensorflow to PyTorch version.
+
+### 1. Download this repository
+
+        git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
+
+
+### 2. Download the [official github repository](https://github.com/NVlabs/stylegan2.git)
+
+        cd stylegan2-by-pytorch/original_implementation_by_tf
+        git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
+### 3. 
+        
+        
+## ② Train new models with Custom Datasets
+
+### 1.   
 
 
 
-### Prepare Dataset
-
-
-
-## 2. 
+### 2. 
 
 
 <!--
