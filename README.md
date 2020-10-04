@@ -31,12 +31,14 @@ To use the official pre-trained models, we need to convert its pre-trained weigh
 ### 1. Download this repository
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
-
-
-### 2. Download pre-trained weights from the [official github repository](https://github.com/NVlabs/stylegan2)
+        
+and then move to original_implementation_by_tf folder.
 
         cd stylegan2-by-pytorch/original_implementation_by_tf
-        git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
+
+### 2. Download [pre-trained weights](https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/) from the [official github repository](https://github.com/NVlabs/stylegan2)
+
+        cd stylegan2-by-pytorch/original_implementation_by_tf
         
 ### 3. 
         
