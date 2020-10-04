@@ -20,7 +20,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - NVIDIA drivers, CUDA 10.0 toolkit and cuDNN 7.5
 - Python 3.6, PyTorch 1.6 (For more info, [requirements.txt](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/requirements.txt))
 
-        pip3 install -r requirements.txt
+        pip install -r requirements.txt
 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
@@ -44,9 +44,17 @@ After downloading the weights, place it `original_implementation_by_tf` folder.
 | :--- | :----------
 | stylegan2-by-pytorch
 | &boxur;&nbsp; original_implementation_by_tf
-| &boxur;&nbsp;  stylegan2-ffhq-config-f.pkl 
+| &ensp;&ensp; &boxur;&nbsp;  stylegan2-ffhq-config-f.pkl | Downloaded pre-trained weights
+
+and then move back to `stylegan2-by-pytorch` folder.
+
+        cd ..
         
-### 3. 
+### 3. Convert the wegihts of Tensorflow to the ones of PyTorch
+        
+        python convert_weights.py
+        
+This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_1` folder.
         
         
 ## ② Train new models with Custom Datasets
