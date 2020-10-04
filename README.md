@@ -32,13 +32,19 @@ To use the official pre-trained models, we need to convert its pre-trained weigh
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
         
-and then move to 'original_implementation_by_tf' folder.
+and then move to `original_implementation_by_tf` folder in the repository.
 
         cd stylegan2-by-pytorch/original_implementation_by_tf
 
 ### 2. Download [pre-trained weights](https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/) from the [official github repository](https://github.com/NVlabs/stylegan2)
 
-        cd stylegan2-by-pytorch/original_implementation_by_tf
+After downloading the weights, place it `original_implementation_by_tf` folder. 
+
+| Example of folder relation | &nbsp;
+| :--- | :----------
+| stylegan2-by-pytorch
+| &boxvr;&nbsp; original_implementation_by_tf
+| &ensp;&ensp; &boxvr;&nbsp;  stylegan2-ffhq-config-f.pkl 
         
 ### 3. 
         
