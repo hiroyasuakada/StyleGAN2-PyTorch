@@ -18,10 +18,15 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - Linux environment
 - One or more NVIDIA GPUs with at least 6GB of DRAM
 - NVIDIA drivers, CUDA 10.0 toolkit and cuDNN 7.5
-- Python 3.6, PyTorch 1.6 (For more info, [requirements.txt]()
+- Python 3.6, PyTorch 1.6 (For more info, [requirements.txt](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/requirements.txt))
 
+        pip3 install -r requirements.txt
 
-## Usage
+- For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
+
+# Usage
+## Prepare Dataset
+
 
 ### Prepare Dataset
 
