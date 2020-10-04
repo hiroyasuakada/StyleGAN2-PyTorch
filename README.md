@@ -34,7 +34,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
         python3 convert_weights.py
         
         
-## Train with Custom Datasets
+## ② Train new models with Custom Datasets
 
 ### 1.   
 
