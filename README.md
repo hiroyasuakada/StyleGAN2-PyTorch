@@ -43,8 +43,8 @@ After downloading the weights, place it `original_implementation_by_tf` folder.
 | Example of folder relation | &nbsp;
 | :--- | :----------
 | stylegan2-by-pytorch
-| &boxvr;&nbsp; original_implementation_by_tf
-| &ensp;&ensp; &boxvr;&nbsp;  stylegan2-ffhq-config-f.pkl 
+| &boxur;&nbsp; original_implementation_by_tf
+| &boxur;&nbsp;  stylegan2-ffhq-config-f.pkl 
         
 ### 3. 
         
