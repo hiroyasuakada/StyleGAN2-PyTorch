@@ -25,7 +25,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
 # Usage
-## Use Pre-Trained Models from Official Implementation
+## ① Use Pre-Trained Models from Official Implementation
 
 ### 1. Download [official github repository]()
 
