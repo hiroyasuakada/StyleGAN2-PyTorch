@@ -25,16 +25,18 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
 # Usage
-## Prepare Dataset
-prepare_data.py in 
+## Use Pre-Trained Models from Official Implementation
+
+        python3 convert_weights.py
+        
+        
+## Train with Custom Datasets
+
+### 1.   
 
 
 
-### Prepare Dataset
-
-
-
-## 2. 
+### 2. 
 
 
 <!--
