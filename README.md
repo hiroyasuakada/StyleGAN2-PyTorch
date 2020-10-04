@@ -5,7 +5,6 @@ A PyTorch implementation of StyleGAN2.
 
 This repository contains the unofficial PyTorch implementation of StyleGAN2.
 
-The original code of StyleGAN2 is based on Tensorflow so I replicated it with Pytorch. Pre-trained networks are obtained using Tensorflow, and these weights and biases are translated into the ones for the Pytorch implementation.
 
 <!--
 > **Analyzing and Improving the Image Quality of StyleGAN**<br>
@@ -21,11 +20,15 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 
 ## 2. 
 
+
+<!--
 ## Features
 
 ## How to use
 
 ## Generated samples
+-->
+
 
 ## Reference
 
@@ -33,11 +36,11 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 - **stylegan2-pytorch**: https://github.com/rosinality/stylegan2-pytorch
 - **StyleGAN2.pytorch**: https://github.com/huangzh13/StyleGAN2.pytorch
 
-## Thanks
 
-Please feel free to open PRs / issues / suggestions here.
 
+<!--
 ## Due Credit
 This code heavily uses NVIDIA's original 
 [StyleGAN2](https://github.com/NVlabs/stylegan2) code. We accredit and acknowledge their work here. The 
 [Original License](/LICENSE_ORIGINAL.txt) is located in the base directory (file named `LICENSE_ORIGINAL.txt`).
+-->
