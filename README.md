@@ -28,6 +28,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 ## ① Use Pre-Trained Models from Official Implementation
 To use the official pre-trained models, we need to convert its pre-trained weights of Tensorflow to PyTorch version.
 
+
 ### 1. Download this repository
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
@@ -36,9 +37,10 @@ and then move to `original_implementation_by_tf` folder in the repository.
 
         cd stylegan2-by-pytorch/original_implementation_by_tf
 
+
 ### 2. Download [pre-trained weights](https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/) from the [official github repository](https://github.com/NVlabs/stylegan2)
 
-After downloading the weights, place it `original_implementation_by_tf` folder. 
+After downloading the weights, place it in `original_implementation_by_tf` folder. 
 
 | Example of folder relation | &nbsp;
 | :--- | :----------
@@ -46,16 +48,23 @@ After downloading the weights, place it `original_implementation_by_tf` folder.
 | &boxur;&nbsp; original_implementation_by_tf
 | &ensp;&ensp; &boxur;&nbsp;  stylegan2-ffhq-config-f.pkl | Downloaded pre-trained weights
 
-and then move back to `stylegan2-by-pytorch` folder.
+and then move back to `stylegan2-by-pytorch` folder by `cd ..` command.
 
-        cd ..
-        
+
 ### 3. Convert the wegihts of Tensorflow to the ones of PyTorch
         
         python convert_weights.py
         
-This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_1` folder.
+        # for docker user 
+        python3 convert_weights.py
         
+This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_1` folder.
+
+
+### 3. Generates images
+
+        python
+
         
 ## ② Train new models with Custom Datasets
 
