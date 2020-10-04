@@ -26,6 +26,8 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 
 # Usage
 ## Prepare Dataset
+prepare_data.py in 
+
 
 
 ### Prepare Dataset
