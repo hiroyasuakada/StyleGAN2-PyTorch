@@ -34,30 +34,24 @@ def resize_and_convert(img, size, resample, quality=100):
     return val
 
 
-def resize_multiple(
-    img, sizes=(128, 256, 512, 1024), resample=Image.LANCZOS, quality=100
-):
+def resize_multiple(img, size=256, resample=Image.LANCZOS, quality=100):
     imgs = []
-
-    for size in sizes:
-        imgs.append(resize_and_convert(img, size, resample, quality))
+    imgs.append(resize_and_convert(img, size, resample, quality))
 
     return imgs
 
 
-def resize_worker(img_file, sizes, resample):
+def resize_worker(img_file, size, resample):
     i, file = img_file
     img = Image.open(file)
     img = img.convert("RGB")
-    out = resize_multiple(img, sizes=sizes, resample=resample)
+    out = resize_multiple(img, size=size, resample=resample)
 
     return i, out
 
 
-def prepare(
-    env, dataset, n_worker, sizes=(128, 256, 512, 1024), resample=Image.LANCZOS
-):
-    resize_fn = partial(resize_worker, sizes=sizes, resample=resample)
+def prepare(env, dataset, n_worker, size=256, resample=Image.LANCZOS):
+    resize_fn = partial(resize_worker, size=size, resample=resample)
 
     files = sorted(dataset.imgs, key=lambda x: x[0])
     files = [(i, file) for i, (file, label) in enumerate(files)]
@@ -65,7 +59,7 @@ def prepare(
 
     with multiprocessing.Pool(n_worker) as pool:
         for i, imgs in tqdm(pool.imap_unordered(resize_fn, files)):
-            for size, img in zip(sizes, imgs):
+            for img in imgs:
                 key = f"{size}-{str(i).zfill(5)}".encode("utf-8")
 
                 with env.begin(write=True) as txn:
@@ -78,13 +72,13 @@ def prepare(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Preprocess images for model training")
+    parser = argparse.ArgumentParser(description="Crate LMDB Dataset for Images")
     parser.add_argument("--out", type=str, help="filename of the result lmdb dataset")
     parser.add_argument(
         "--size",
-        type=str,
-        default="128,256,512,1024",
-        help="resolutions of images for the dataset",
+        type=int,
+        default=256,
+        help="resolution of images for the dataset",
     )
     parser.add_argument(
         "--n_worker",
@@ -105,11 +99,9 @@ if __name__ == "__main__":
     resample_map = {"lanczos": Image.LANCZOS, "bilinear": Image.BILINEAR}
     resample = resample_map[args.resample]
 
-    sizes = [int(s.strip()) for s in args.size.split(",")]
-
-    print(f"Make dataset of image sizes:", ", ".join(str(s) for s in sizes))
+    print("Make dataset of image sizes: {}".format(args.size))
 
     imgset = datasets.ImageFolder(args.path)
 
     with lmdb.open(args.out, map_size=1024 ** 4, readahead=False) as env:
-        prepare(env, imgset, args.n_worker, sizes=sizes, resample=resample)
+        prepare(env, imgset, args.n_worker, size=args.size, resample=resample)
