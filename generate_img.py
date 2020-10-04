@@ -32,36 +32,55 @@ if __name__ == '__main__':
     else:
         device = torch.device('cpu')
 
-    # command line
     parser = argparse.ArgumentParser(description='Generate images with pre-trained weights of StyleGAN2')
-    parser.add_argument('--weight_path', 
-                        type=str, 
-                        default='checkpoint/stylegan2_pytorch_state_dict.pth', 
-                        help='dict where pre-trained weights are saved')
-    parser.add_argument('--output_dir', 
-                        type=str, 
-                        default='generated_imgs', 
-                        help='dict where generated images will be saved')
-    parser.add_argument('--imgs_name', 
-                        type=str, 
-                        default='generated_imgs_pytorch.png', 
-                        help='name of table of generated images')
-    parser.add_argument('--resolution', 
-                        type=int, 
-                        default=1024,
-                        help='resolution of individual images')
-    parser.add_argument('--num_rows',
-                        type=int,
-                        default=4,
-                        help='the number of rows of image table')
-    parser.add_argument('--num_columns',
-                        type=int,
-                        default=4,
-                        help='the number of columns of image table')
-    parser.add_argument('--batch_size', 
-                        type=int, 
-                        default=1,
-                        help='batch size to be passed through generator')
+    parser.add_argument(
+        '--path_weights', 
+        type=str, 
+        default='checkpoint_1/stylegan2_pytorch_state_dict.pth', 
+        help='path to pre-trained weights'
+    )
+    parser.add_argument(
+        '--output_dir', 
+        type=str, 
+        default='checkpoint_1', 
+        help='path to dict where generated images will be saved'
+    )
+    parser.add_argument(
+        '--imgs_name', 
+        type=str, 
+        default='generated_imgs.png', 
+        help='name of table of generated images'
+    )
+    parser.add_argument(
+        '--resolution', 
+        type=int, 
+        default=1024,
+        help='resolution of individual images'
+    )
+    parser.add_argument(
+        '--num_rows',
+        type=int,
+        default=4,
+        help='the number of rows of image table'
+    )
+    parser.add_argument(
+        '--num_columns',
+        type=int,
+        default=4,
+        help='the number of columns of image table'
+    )
+    parser.add_argument(
+        '--batch_size', 
+        type=int, 
+        default=1,
+        help='batch size to be passed through generator'
+    )
+    parser.add_argument(
+        '--path_latents',
+        type=str,
+        default=None,
+        help='path to latents which you want to use to generate images'
+    )
     args = parser.parse_args()
 
     ## build a model
@@ -71,28 +90,32 @@ if __name__ == '__main__':
 
     # load pre-trained weights of Pytorch
     print('\n set state_dict... \n')
-    new_dict_pt = torch.load(Path(args.weight_path))
+    new_dict_pt = torch.load(Path(args.path_weights))
     generator.load_state_dict(new_dict_pt)
     
-    # # load latents
-    # print('\n load latents... \n')
-    # with (Path(args.output_dir)/'latents2.pkl').open('rb') as f:
-    #     latents = pickle.load(f)
-    # latents = torch.from_numpy(latents.astype(np.float32))
-
     # configs for images and table
     num_H = args.num_rows
     num_W = args.num_columns
     N = num_images = num_H * num_W
     resolution = args.resolution
 
-    # prepare latents
-    latents = np.random.RandomState(5).randn(N, 512)
-    latents = torch.from_numpy(latents.astype(np.float32))
+    if args.path_latents is None:
 
-    # save latents
-    with (Path(args.output_dir)/'used_latents.pkl').open('wb') as f:
-        pickle.dump(latents, f)
+        # create new latents
+        print('\n create latents... \n')
+        latents = np.random.RandomState(5).randn(N, 512)
+        latents = torch.from_numpy(latents.astype(np.float32))
+        
+        # save latents for later use
+        with (Path(args.output_dir)/'used_latents.pkl').open('wb') as f:
+            pickle.dump(latents, f)
+
+    else:
+        # load latents
+        print('\n load latents... \n')
+        with (Path(args.output_dir)/'latents2.pkl').open('rb') as f:
+            latents = pickle.load(f)
+        latents = torch.from_numpy(latents.astype(np.float32))
     
     print('\n network forward... \n')
     with torch.no_grad():

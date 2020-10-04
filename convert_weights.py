@@ -44,7 +44,7 @@ def convert_from_tf_to_np(args, src):
         *_, Gs = pickle.load(f)
 
     # save the weights as a numpy format
-    print('src_ndarray_weight save...')
+    print('save src_ndarray_weight save...')
     ndarrays = {k:v.eval() for k,v in Gs.vars.items()}
     [print(k,v.shape) for k,v in ndarrays.items()]
     with (Path(args.weight_dir)/src['src_ndarray_weight']).open('wb') as f:
@@ -62,9 +62,9 @@ if __name__ == '__main__':
                         help='dict where pre-trained weights are saved')
     parser.add_argument('-o','--output_dir', 
                         type=str, 
-                        default='checkpoint', 
+                        default='checkpoint_1', 
                         help='dict where generated images will be saved')
-    parser.add_argument('-rn', '--rename', 
+    parser.add_argument('-n', '--name', 
                         type=str,
                         default='stylegan2_pytorch_state_dict.pth',
                         help='file name of converted weights')
@@ -105,6 +105,6 @@ if __name__ == '__main__':
     print('\n try to set state_dict... ok \n')   
 
     print('\n weight save... \n')
-    torch.save(generator.state_dict(), str(Path(args.output_dir + '/' + args.rename)))
+    torch.save(generator.state_dict(), str(Path(args.output_dir + '/' + args.name)))
 
     print('\n all done \n')
