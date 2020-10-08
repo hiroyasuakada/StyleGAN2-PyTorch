@@ -1,4 +1,4 @@
-# stylegan2-by-pytorch
+# Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2. 
 
 # under construction 
