@@ -1,5 +1,5 @@
 ##############################################################################
-#  for ITC 
+#                                 Main image                                ##
 ##############################################################################
 
 FROM nvidia/cuda:9.0-devel-ubuntu16.04
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ##############################################################################
-##                Python3 & matplotlib & pip & opencv & tf                  ##
+##                 Python3, PyTorch, Tensorflow and so on                   ##
 ##############################################################################
 
 RUN apt update
@@ -43,7 +43,7 @@ RUN pip3 install ninja
 RUN pip3 install tensorboardX
 
 ##############################################################################
-##                               pytorch                                    ##
+##                                  git                                     ##
 ##############################################################################
 RUN apt update
 RUN echo y | apt install git
