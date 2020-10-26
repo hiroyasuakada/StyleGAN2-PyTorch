@@ -1,9 +1,9 @@
 # Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2. 
 
-# under construction 
+# demo
 
-This repository contains the unofficial PyTorch implementation of StyleGAN2.
+
 
 
 <!--
