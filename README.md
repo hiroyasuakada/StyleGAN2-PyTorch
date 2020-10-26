@@ -1,7 +1,7 @@
 # Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2. 
 
-# demo
+# Demo
 ## ① Use Pre-Trained Models from Official Implementation
 
 <div align="center">
