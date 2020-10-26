@@ -1,9 +1,17 @@
 # Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2. 
 
-# under construction 
+# demo
+## ① Use Pre-Trained Models from Official Implementation
 
-This repository contains the unofficial PyTorch implementation of StyleGAN2.
+<div align="center">
+<!-- <img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_1.jpg" alt="属性" title="タイトル"> -->
+<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_2.jpg" alt="属性" title="タイトル">
+<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_3.jpg" alt="属性" title="タイトル">
+</div>
+
+## ② Train New Model with FFHQ dataset (256 × 256)
+
 
 
 <!--
@@ -24,7 +32,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
-# Usage
+# How to Use
 ## ① Use Pre-Trained Models from Official Implementation
 To use the official pre-trained models, we need to convert its pre-trained weights of Tensorflow to PyTorch version.
 
@@ -55,33 +63,24 @@ and then move back to `stylegan2-by-pytorch` folder by `cd ..` command.
         
         python convert_weights.py
         
-        # for docker user 
-        python3 convert_weights.py
+This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_pre_trained` folder.
+
+
+### 4. Generates images
+
+        python generate_img_pre_trained.py
         
-This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_1` folder.
-
-
-### 3. Generates images
-
-        python
+You can find generated images in `results_pre_trained` folder.
+For more information, please refer to `python generate_img_pre-trained.py --help`.
 
         
-## ② Train new models with Custom Datasets
+## ② Train with Your Custom Datasets
 
 ### 1.   
 
 
 
 ### 2. 
-
-
-<!--
-## Features
-
-## How to use
-
-## Generated samples
--->
 
 
 ## Reference
