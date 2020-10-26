@@ -2,7 +2,11 @@
 A PyTorch implementation of StyleGAN2. 
 
 # demo
+## ① Use Pre-Trained Models from Official Implementation
 
+
+
+## ② Train New Model with FFHQ dataset (256 × 256)
 
 
 
