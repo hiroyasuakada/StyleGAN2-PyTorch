@@ -69,7 +69,7 @@ and then move back to `stylegan2-by-pytorch` folder by `cd ..` command.
 This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_pre_trained` folder.
 
 
-### 4. Generates images
+### 4. Generate images
 
         python generate_img_pre_trained.py
         
