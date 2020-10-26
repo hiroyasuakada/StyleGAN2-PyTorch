@@ -4,7 +4,11 @@ A PyTorch implementation of StyleGAN2.
 # demo
 ## ① Use Pre-Trained Models from Official Implementation
 
-
+<div align="center">
+<!-- <img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_1.jpg" alt="属性" title="タイトル"> -->
+<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_2.jpg" alt="属性" title="タイトル">
+<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_3.jpg" alt="属性" title="タイトル">
+</div>
 
 ## ② Train New Model with FFHQ dataset (256 × 256)
 
