@@ -62,7 +62,7 @@ After downloading the weights, place it in `original_implementation_by_tf` folde
 and then move back to `stylegan2-by-pytorch` folder by `cd ..` command.
 
 
-### 3. Convert the wegihts of Tensorflow to the ones of PyTorch
+### 3. Convert wegihts of Tensorflow to the ones of PyTorch
         
         python convert_weights.py
         
