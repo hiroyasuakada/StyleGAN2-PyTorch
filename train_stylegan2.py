@@ -136,7 +136,7 @@ if __name__ == '__main__':
         'path_dataset', type=str, help='path to your lmdb dataset'
     )
     parser.add_argument(
-        '--path_log', type=str, default='checkpoint_2', help='path to dict where log of training details will be saved'
+        '--path_log', type=str, default='checkpoint', help='path to dict where log of training details will be saved'
     )
     parser.add_argument(
         '--num_epoch', type=int, default=400, help='total training epochs'

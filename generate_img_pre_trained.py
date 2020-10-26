@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import pickle
+import os
 
 import numpy as np
 import cv2
@@ -36,19 +37,19 @@ if __name__ == '__main__':
     parser.add_argument(
         '--path_weights', 
         type=str, 
-        default='checkpoint_1/stylegan2_pytorch_state_dict.pth', 
+        default='checkpoint_pre_trained/stylegan2_pytorch_state_dict.pth', 
         help='path to pre-trained weights'
     )
     parser.add_argument(
         '--output_dir', 
         type=str, 
-        default='checkpoint_1', 
+        default='results_pre_trained', 
         help='path to dict where generated images will be saved'
     )
     parser.add_argument(
         '--imgs_name', 
         type=str, 
-        default='generated_imgs.png', 
+        default='generated_imgs_pre_trained.png', 
         help='name of table of generated images'
     )
     parser.add_argument(
@@ -82,6 +83,9 @@ if __name__ == '__main__':
         help='path to latents which you want to use to generate images'
     )
     args = parser.parse_args()
+
+    if not os.path.exists(Path(args.output_dir)):
+        os.mkdir(Path(args.output_dir))
 
     ## build a model
     print('\n build models... \n')

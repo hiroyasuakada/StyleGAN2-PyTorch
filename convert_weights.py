@@ -63,7 +63,7 @@ if __name__ == '__main__':
                         help='dict where pre-trained weights are saved')
     parser.add_argument('-o','--output_dir', 
                         type=str, 
-                        default='checkpoint_1', 
+                        default='checkpoint_pre_trained', 
                         help='dict where generated images will be saved')
     parser.add_argument('-n', '--name', 
                         type=str,
