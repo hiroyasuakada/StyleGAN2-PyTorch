@@ -89,21 +89,24 @@ class PixelwiseNormalization(nn.Module):
 
 
 class TruncationTrick(nn.Module):
-    def __init__(self, num_target, threshold, out_num, dlatent_size):
+    def __init__(self, out_num, dlatent_size):
         super().__init__()
-        self.num_target = num_target
-        self.threshold = threshold
         self.out_num = out_num
         self.dlatent_size = dlatent_size
         self.register_buffer('avg_style', torch.zeros((dlatent_size, )))
 
-    def forward(self, x):
+    def forward(self, x, truncation_target=10, truncation_rate=1, truncation_latent=None):
         N, D = x.shape
         O = self.out_num
         x = x.view(N, 1, D).expand(N, O, D)
-        rate = torch.cat([torch.ones((N, self.num_target,   D)) * self.threshold, 
-                          torch.ones((N, O - self.num_target, D)) * 1.0], 1).to(x.device)
-        avg = self.avg_style.view(1, 1, D).expand(N, O, D)
+        rate = torch.cat([torch.ones((N, truncation_target,   D)) * truncation_rate, 
+                          torch.ones((N, O - truncation_target, D)) * 1.0], 1).to(x.device)
+
+        if truncation_latent is None:  # for training with your dataset or using official pre-trained weights
+            avg = self.avg_style.view(1, 1, D).expand(N, O, D)
+        else: # for testing with your learned weights
+            avg = truncation_latent.view(1, 1, D).expand(N, O, D)
+
         return avg + (x - avg) * rate
 
 
@@ -292,7 +295,7 @@ class EqualizedConv2D(nn.Module):
         self.weight_scaler = 1 / (in_channels * kernel_size * kernel_size) ** 0.5 * lr
 
         if bias:
-            self.bias = nn.Parameter(torch.zeros(out_channel))
+            self.bias = nn.Parameter(torch.zeros(out_channels))
         else:
             self.bias = None
 

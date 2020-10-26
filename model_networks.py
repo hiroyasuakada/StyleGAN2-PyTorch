@@ -60,8 +60,8 @@ class GeneratorMapping(nn.Module):
 
             layers.append(GeneratorMappingBlock(in_fmaps=in_fmaps, out_fmaps=out_fmaps))
 
-        # build a last layer for truncation trick
-        layers.append(TruncationTrick(num_target=10, threshold=1.0, out_num=self.n_latent, dlatent_size=512))  # threshold=0.7
+        # # build a last layer for truncation trick, 
+        layers.append(TruncationTrick(out_num=self.n_latent, dlatent_size=512))  # threshold=0.7
         
         self.blocks = nn.ModuleList(layers)
 
@@ -69,20 +69,23 @@ class GeneratorMapping(nn.Module):
         # print('Generator Mapping Network: ')
         # print(self.model)
 
-    def forward(self, latents_in):
+    def forward(self, latents_in, truncation_target=10, truncation_rate=1, truncation_latent=None):
 
         """
         Args:
             latents_in: First input: Latent vectors (Z) [minibatch, latent_size]. ex, [4, 512]
-            dlatents_out: Latent vectors (W) [N 18, D] = [4, 18, 512]
+            dlatents_out: Latent vectors (W) [N 18, D] = [4, 18, 512] if 1024 * 1024
         """
 
         x = latents_in
 
-        for i in range(len(self.blocks)):
+        for i in range(len(self.blocks) - 1):
             x = self.blocks[i](x)
 
-        dlatents_out = x
+        # truncation trick
+        x = self.blocks[-1](x, truncation_target, truncation_rate, truncation_latent)
+
+        dlatents_out = x        
             
         return dlatents_out
 
@@ -178,6 +181,8 @@ class Generator(nn.Module):
 
         self.resolution_log2 = int(np.log2(resolution))
         self.n_latent = self.resolution_log2 * 2 - 2
+        self.latent_size = latent_size
+        self.dlatent_size = dlatent_size
 
         ## synthetic rate for synthetic images / do not use this time
         # self.register_buffer('style_mixing_rate', torch.zeros((1,)))
@@ -191,7 +196,13 @@ class Generator(nn.Module):
              )
         self.synthesis_network = GeneratorSynthesis(resolution=resolution, **_kwargs)
 
-    def forward(self,latents_in, return_dlatents=False):
+    def mean_latent(self, n_latent, device):
+        latent = torch.randn(n_latent, self.latent_size, device=device)
+        mean_latent = self.mapping_network(latent).mean(0, keepdim=True)
+
+        return mean_latent
+
+    def forward(self,latents_in, truncation_target=10, truncation_rate=1, truncation_latent=None, return_dlatents=False):
 
         """
         Args:
@@ -201,7 +212,9 @@ class Generator(nn.Module):
         Returns: images
         """
 
-        dlatents_out = [self.mapping_network(latent) for latent in latents_in]
+        dlatents_out = [
+            self.mapping_network(latent, truncation_target, truncation_rate, truncation_latent) for latent in latents_in
+        ]
 
         if len(dlatents_out) < 2:
             dlatents_in = dlatents_out[0]

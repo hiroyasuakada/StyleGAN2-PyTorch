@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import pickle
 import PIL.Image
+import os
 
 import numpy as np
 import cv2
@@ -69,6 +70,9 @@ if __name__ == '__main__':
                         default='stylegan2_pytorch_state_dict.pth',
                         help='file name of converted weights')
     args = parser.parse_args()
+
+    if not os.path.exists(Path(args.output_dir)):
+        os.mkdir(Path(args.output_dir))
 
     src = {
         'src_weight'  : 'stylegan2-ffhq-config-f.pkl',

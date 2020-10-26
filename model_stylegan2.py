@@ -48,7 +48,7 @@ class StyleGAN2(object):
         self.img_size = img_size
         self.log_dir = log_dir
         self.device = device
-        print(torch.cuda.is_available())
+        # print(torch.cuda.is_available())
         self.distributed = distributed
         self.local_rank = local_rank
         self.load_epoch = load_epoch
@@ -72,10 +72,20 @@ class StyleGAN2(object):
         self.mean_path_length = 0
         self.mean_path_length_avg = 0
         self.loss_dict = {}
-               
+
+        # # load epoch 219
+        # self.r1_loss = torch.tensor(0.03054, device=self.device)
+        # self.path_loss = torch.tensor(0.01291, device=self.device)
+        # self.path_lengths = torch.tensor(0.2501, device=self.device)
+        # self.mean_path_length = 0.3633
+        # self.mean_path_length_avg = 0.3633
+
         # load networks
         self.G = Generator(resolution=self.img_size, latent_size=self.latent_size).to(self.device)
         self.D = Discriminator(resolution=self.img_size).to(self.device)
+
+        self.G.train()
+        self.D.train()
 
         # optimize params for G and D
         g_reg_ratio = g_reg_every / (g_reg_every + 1)
@@ -91,6 +101,13 @@ class StyleGAN2(object):
             lr=self.lr * d_reg_ratio, 
             betas=(0 ** d_reg_ratio, 0.99 ** d_reg_ratio)
         )
+
+        # weight decay
+        def lambda_rule(epoch):
+            lr_l = 1.0 - max(0, epoch + self.load_epoch + 1 - 200) / float(200 + 1)
+            return lr_l
+        self.scheduler_G = torch.optim.lr_scheduler.LambdaLR(self.optimizer_G, lr_lambda=lambda_rule)
+        self.scheduler_D = torch.optim.lr_scheduler.LambdaLR(self.optimizer_D, lr_lambda=lambda_rule)
 
         # load past models
         if self.load_epoch != 0:
@@ -188,7 +205,7 @@ class StyleGAN2(object):
         # predict real or fake
         fake_pred = self.D(fake_imgs)
 
-        # calculate an adversarial loss / G tries to fool D
+        # calculate an adversarial loss / G tries to fool D, nonsaturating_loss
         g_adv_loss = F.softplus(-fake_pred).mean()
 
         # backward
@@ -304,7 +321,7 @@ class StyleGAN2(object):
                 dynamic_ncols=True, 
                 smoothing=0.01, 
                 unit='batch',
-                postfix='current training epoch: ' + str(epoch),
+                postfix='current epoch: {} / lr: {:.10f}'.format(str(epoch), self.scheduler_G.get_lr()[0]),
                 position=0
             )
 
@@ -345,6 +362,9 @@ class StyleGAN2(object):
 
                 running_loss += loss_val
 
+        self.scheduler_G.step()
+        self.scheduler_D.step()
+
         if get_rank() == 0:
             running_loss /= len(data_loader)
             return running_loss
@@ -377,10 +397,13 @@ class StyleGAN2(object):
         self.load_network(self.G, 'Generator', epoch_label)
         self.load_network(self.D, 'Discriminator', epoch_label)
 
-    def generate_imgs(self, epoch_label, return_imgs=False):
-        imgs = self.G_module([self.sample_z])
-        img_table_name = '{}.png'.format(epoch_label)
+    def generate_imgs(self, epoch_label, truncation_target=8, truncation_rate=0.7, truncation_latent=None, return_imgs=False):
+        self.G_module.eval()
+        imgs = self.G_module([self.sample_z], truncation_target, truncation_rate, truncation_latent)
+        img_table_name = 'train_{}.png'.format(epoch_label)
         save_path = os.path.join(self.log_dir, img_table_name)
+
+        self.G_module.train()
 
         # save and return images
         if return_imgs:

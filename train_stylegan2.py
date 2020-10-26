@@ -6,7 +6,7 @@ usage:
 
     for author:
         python3 -m torch.distributed.launch --nproc_per_node=4 train_stylegan2.py lmdb_ffhq_r256_70000 --path_log logs_b4_lr0.0005
-        kill $(ps aux | grep train_stylegan2_distributed.py | grep -v grep | awk '{print $2}')
+        kill $(ps aux | grep train_stylegan2.py | grep -v grep | awk '{print $2}')
 """
 
 import argparse
@@ -83,6 +83,20 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, loa
 
         if get_rank() == 0:
 
+            # generate images during training
+            with torch.no_grad():
+                imgs = model.generate_imgs(
+                    "epoch_" + str(current_training_epoch), 
+                    truncation_target=8, 
+                    truncation_rate=0.7, 
+                    truncation_latent=None,
+                    return_imgs=True
+                )
+
+            # save models
+            if current_training_epoch % save_freq == 0:
+                model.save('epoch_' + str(current_training_epoch))
+
             # set description for pbar1
             pbar1.set_description(
                 (
@@ -95,10 +109,6 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, loa
                 )
             )
 
-            # generate images during training
-            with torch.no_grad():
-                imgs = model.generate_imgs("epoch_" + str(current_training_epoch), return_imgs=True)
-
             # record logs at an epoch level
             wandb.log(
                 {
@@ -109,13 +119,11 @@ def train(log_dir, device, distributed, local_rank, train_loader, num_epoch, loa
                     'path_lengths_epoch': running_loss_epoch[4],
                     'mean_path_length_epoch': running_loss_epoch[5],
                     'generated_images_epoch': [wandb.Image(imgs, caption='epoch: {}'.format(current_training_epoch))],
-                    'epoch': epoch
+                    'epoch finished': current_training_epoch
                 }
             )
 
-            # save models
-            if current_training_epoch % save_freq == 0:
-                model.save('epoch_' + str(current_training_epoch))
+
 
 
 if __name__ == '__main__':
@@ -128,7 +136,7 @@ if __name__ == '__main__':
         'path_dataset', type=str, help='path to your lmdb dataset'
     )
     parser.add_argument(
-        '--path_log', type=str, default='logs', help='path to dict where log of training details will be saved'
+        '--path_log', type=str, default='checkpoint_2', help='path to dict where log of training details will be saved'
     )
     parser.add_argument(
         '--num_epoch', type=int, default=400, help='total training epochs'

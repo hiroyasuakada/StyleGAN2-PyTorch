@@ -26,7 +26,7 @@ class ModConvLayer(nn.Module):
         self.conv = EqualizedModConv2D(dlatent_size=dlatent_size, 
                                        in_channels=in_channels, out_channels=out_channels,
                                        padding=padding, stride=stride,
-                                       kernel_size=kernel_size, up=up)  # no need of "use_noise" for now
+                                       kernel_size=kernel_size, up=up) 
         self.noise = PixelwiseNoise(resolution=resolution)
         self.bias = AddChannelwiseBias(out_channels=out_channels, lr=1.0)
         self.amplify = Amplify(rate=2**0.5)
