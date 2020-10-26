@@ -24,7 +24,7 @@ Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, Timo 
 
 - For docker user, please use the [provided Dockerfile](https://github.com/hiroyasuakada/stylegan2-by-pytorch/blob/master/docker_DLB/dockerfile). (highly recommended)
 
-# Usage
+# How to Use
 ## ① Use Pre-Trained Models from Official Implementation
 To use the official pre-trained models, we need to convert its pre-trained weights of Tensorflow to PyTorch version.
 
@@ -66,7 +66,7 @@ You can find generated images in `results_pre_trained` folder.
 For more information, please refer to `python generate_img_pre-trained.py --help`.
 
         
-## ② Train new models with Custom Datasets
+## ② Train with Your Custom Datasets
 
 ### 1.   
 
