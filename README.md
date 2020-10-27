@@ -1,7 +1,7 @@
 # Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2.
 
-You can try two implementations; official pre-trained model and new model trained with your own dataset.
+I coded this implementation for my study, so there may be some difference from the original implementation.
 
 # Demo
 ## ① Use Pre-Trained Models from Official Implementation
