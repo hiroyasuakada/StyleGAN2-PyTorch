@@ -41,11 +41,10 @@ To use the official pre-trained models, we need to convert its pre-trained weigh
 
 
 ### 1. Download this repository
+Please clone this git repo, and then move to `original_implementation_by_tf` folder in the repository.
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
         
-and then move to `original_implementation_by_tf` folder in the repository.
-
         cd stylegan2-by-pytorch/original_implementation_by_tf
 
 
