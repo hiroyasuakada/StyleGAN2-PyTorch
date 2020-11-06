@@ -90,7 +90,7 @@ if __name__ == '__main__':
         '--truncation_target', type=int, default=8, help='the number of layers for applying truncation trick'
     )
     parser.add_argument(
-        '--truncation_rate', type=float, default=1, help='truncation ratio'
+        '--truncation_rate', type=float, default=0.7, help='truncation ratio'
     )
     parser.add_argument(
         '--truncation_latent', 
