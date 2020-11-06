@@ -73,7 +73,12 @@ def prepare(env, dataset, n_worker, size=256, resample=Image.LANCZOS):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Crate LMDB Dataset for Images")
-    parser.add_argument("--out", type=str, help="filename of the result lmdb dataset")
+    parser.add_argument(
+        "--name",
+        type=str, 
+        default='lmdb_new',
+        help="filename of the lmdb dataset"
+    )
     parser.add_argument(
         "--size",
         type=int,
@@ -83,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_worker",
         type=int,
-        default=4,
+        default=2,
         help="number of workers for preparing dataset",
     )
     parser.add_argument(

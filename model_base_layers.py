@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
+from op import fused_leaky_relu, upfirdn2d
 
 
 def make_kernel(k):
