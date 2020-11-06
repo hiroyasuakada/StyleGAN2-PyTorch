@@ -78,11 +78,20 @@ For more information, please refer to `python generate_img_pre-trained.py --help
         
 ## ② Train with Your Custom Datasets
 
-### 1.   
+
+### 1. Create lmdb dataset
+
+        python prepare_dataset.py [DATASET_PATH]
+
+This creates lmdb dataset of your image data.
+For more information, please refer to `python prepare_dataset.py --help`.
 
 
+### 2. Train new model with the lmdb dataset
 
-### 2. 
+        python -m torch.distributed.launch --nproc_per_node=[NUM OF GPUs] train_stylegan2.py
+        
+For more information, please refer to [`train_stylegan2.py`](https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/16e5741115b461bee588e06bf7b4c081b80d72cb/train_stylegan2.py#L133-L194).
 
 
 ## Reference
