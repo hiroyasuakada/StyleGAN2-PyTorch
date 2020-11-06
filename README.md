@@ -73,6 +73,7 @@ This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder a
         python generate_img_pre_trained.py
         
 You can find generated images in `results_pre_trained` folder.
+
 For more information, please refer to `python generate_img_pre-trained.py --help`.
 
         
@@ -84,6 +85,7 @@ For more information, please refer to `python generate_img_pre-trained.py --help
         python prepare_dataset.py [DATASET_PATH]
 
 This creates lmdb dataset of your image data.
+
 For more information, please refer to `python prepare_dataset.py --help`.
 
 
@@ -91,6 +93,11 @@ For more information, please refer to `python prepare_dataset.py --help`.
 
         python -m torch.distributed.launch --nproc_per_node=[NUM OF GPUs] train_stylegan2.py
         
+        # If you want to kill all processes
+        kill $(ps aux | grep train_stylegan2.py | grep -v grep | awk '{print $2}')
+
+By default, this creates checkpoint for training log where all of the training details will be saved.
+
 For more information, please refer to [`train_stylegan2.py`](https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/16e5741115b461bee588e06bf7b4c081b80d72cb/train_stylegan2.py#L133-L194).
 
 
