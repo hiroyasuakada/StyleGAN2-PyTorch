@@ -4,12 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-<<<<<<< HEAD
-from op import fused_leaky_relu, upfirdn2d
-=======
 from op import upfirdn2d
->>>>>>> 2a44a34390b508089f06bec1b8ae3806706b0f37
-
 
 def make_kernel(k):
     k = torch.tensor(k, dtype=torch.float32)
