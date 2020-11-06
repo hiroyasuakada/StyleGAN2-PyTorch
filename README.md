@@ -10,7 +10,7 @@ I coded this implementation for my study, so there may be some difference from t
 <img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/generated_imgs_pre_trained.png" alt="属性" title="タイトル"　width="320px">
 </div>
 
-## ② Train New Model Using This Implementation with FFHQ dataset (256 × 256)
+## ② Train New Model with FFHQ Dataset (256 × 256)
 
 <div align="center">
 <img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="320px"> 
@@ -73,16 +73,40 @@ This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder a
         python generate_img_pre_trained.py
         
 You can find generated images in `results_pre_trained` folder.
+
 For more information, please refer to `python generate_img_pre-trained.py --help`.
 
         
-## ② Train with Your Custom Datasets
-
-### 1.   
+## ② Train with Custom Datasets
 
 
+### 1. Create lmdb dataset
+If you want to use FFHQ dataset, please download it from [here](https://github.com/NVlabs/ffhq-dataset).
 
-### 2. 
+        python prepare_dataset.py [DATASET_PATH]
+
+This creates lmdb dataset of your image data.
+
+For more information, please refer to `python prepare_dataset.py --help`.
+
+
+### 2. Train new model with the lmdb dataset
+
+        python -m torch.distributed.launch --nproc_per_node=[NUM_OF_GPUs] train_stylegan2.py
+        
+        # If you want to kill all processes
+        kill $(ps aux | grep train_stylegan2.py | grep -v grep | awk '{print $2}')
+
+By default, this creates `checkpoint_2` folder for training log where all of the training details will be saved.
+
+For more information, please refer to [`train_stylegan2.py`](https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/16e5741115b461bee588e06bf7b4c081b80d72cb/train_stylegan2.py#L133-L194).
+
+### 3. Generate images with your trained model
+
+        python test_stylegan2.py --load_epoch [EPOCH_NUM] --path_save_dir [SAVE_DIR] --gpu_ids [GPU_IDS: i.e. 0, 1]
+        
+For more information, please refer to `test_stylegan2.py --help`.
+
 
 
 ## Reference
