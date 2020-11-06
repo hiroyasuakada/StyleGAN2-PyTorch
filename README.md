@@ -102,10 +102,9 @@ For more information, please refer to [`train_stylegan2.py`](https://github.com/
 
 ### 3. Generate images with your trained model
 
-        python test_stylegan2.py --load_epoch [EPOCH_NUM] --path_save_dir [SAVE_DIR] --gpu_ids [GPU_IDS, i.e. 0, 1]
+        python test_stylegan2.py --load_epoch [EPOCH_NUM] --path_save_dir [SAVE_DIR] --gpu_ids [GPU_IDS: i.e. 0, 1]
         
- For more information, please refer to `test_stylegan2.py --help`.
-
+For more information, please refer to `test_stylegan2.py --help`.
 
 
 
