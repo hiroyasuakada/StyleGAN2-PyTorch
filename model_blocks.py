@@ -9,7 +9,7 @@ from model_base_layers import Upsample, Downsample, Blur, Amplify, AddChannelwis
                               EqualizedFullyConnect, PixelwiseNoise, PixelwiseRondomizedNoise, \
                               FusedBlur3x3, EqualizedModConv2D, EqualizedConv2D
 
-from op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d
+from op import upfirdn2d
 
 
 ###################################################################################################

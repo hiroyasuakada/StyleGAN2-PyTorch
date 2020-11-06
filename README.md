@@ -1,17 +1,20 @@
 # Stylegan2-by-PyTorch
-A PyTorch implementation of StyleGAN2. 
+A PyTorch implementation of StyleGAN2.
 
-# demo
+I coded this implementation for my study, so there may be some difference from the original implementation.
+
+# Demo
 ## ① Use Pre-Trained Models from Official Implementation
 
 <div align="center">
-<!-- <img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_1.jpg" alt="属性" title="タイトル"> -->
-<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_2.jpg" alt="属性" title="タイトル">
-<img src="https://github.com/hiroyasuakada/dynamic-object-removal-with-unpaired-images/blob/master/demo/input_3.jpg" alt="属性" title="タイトル">
+<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/generated_imgs_pre_trained.png" alt="属性" title="タイトル"　width="320px">
 </div>
 
-## ② Train New Model with FFHQ dataset (256 × 256)
+## ② Train New Model Using This Implementation with FFHQ dataset (256 × 256)
 
+<div align="center">
+<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="320px"> 
+</div>
 
 
 <!--
@@ -38,11 +41,10 @@ To use the official pre-trained models, we need to convert its pre-trained weigh
 
 
 ### 1. Download this repository
+Please clone this git repo, and then move to `original_implementation_by_tf` folder in the repository.
 
         git clone https://github.com/hiroyasuakada/stylegan2-by-pytorch.git
         
-and then move to `original_implementation_by_tf` folder in the repository.
-
         cd stylegan2-by-pytorch/original_implementation_by_tf
 
 
@@ -59,14 +61,14 @@ After downloading the weights, place it in `original_implementation_by_tf` folde
 and then move back to `stylegan2-by-pytorch` folder by `cd ..` command.
 
 
-### 3. Convert the wegihts of Tensorflow to the ones of PyTorch
+### 3. Convert wegihts of Tensorflow to the ones of PyTorch
         
         python convert_weights.py
         
 This creates `stylegan2_ndarray.pkl` in `original_implementation_by_tf` folder and `stylegan2_pytorch_state_dict.pth` in `checkpoint_pre_trained` folder.
 
 
-### 4. Generates images
+### 4. Generate images
 
         python generate_img_pre_trained.py
         
