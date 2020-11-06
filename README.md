@@ -77,7 +77,7 @@ You can find generated images in `results_pre_trained` folder.
 For more information, please refer to `python generate_img_pre-trained.py --help`.
 
         
-## ② Train with Your Custom Datasets
+## ② Train with Custom Datasets
 
 
 ### 1. Create lmdb dataset
@@ -96,9 +96,17 @@ For more information, please refer to `python prepare_dataset.py --help`.
         # If you want to kill all processes
         kill $(ps aux | grep train_stylegan2.py | grep -v grep | awk '{print $2}')
 
-By default, this creates checkpoint for training log where all of the training details will be saved.
+By default, this creates `checkpoint_2` folder for training log where all of the training details will be saved.
 
 For more information, please refer to [`train_stylegan2.py`](https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/16e5741115b461bee588e06bf7b4c081b80d72cb/train_stylegan2.py#L133-L194).
+
+### 3. Generate images with your trained model
+
+        python test_stylegan2.py --load_epoch [EPOCH NUM] --path_save_dir [SAVE DIR] --gpu_ids [GPU IDS]
+        
+ For more information, please refer to `test_stylegan2.py --help`.
+
+
 
 
 ## Reference
