@@ -103,10 +103,10 @@ if __name__ == '__main__':
 
     args.latent_size = 512
 
-    # # random seeds
-    # torch.manual_seed(1234)
-    # np.random.seed(1234)
-    # random.seed(1234)
+    # random seeds
+    torch.manual_seed(1234)
+    np.random.seed(1234)
+    random.seed(1234)
 
     G_test = Generator(resolution=args.img_size).to(device)
     epoch_label = 'epoch_' + str(args.load_epoch)
