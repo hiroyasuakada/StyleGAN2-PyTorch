@@ -91,7 +91,7 @@ For more information, please refer to `python prepare_dataset.py --help`.
 
 ### 2. Train new model with the lmdb dataset
 
-        python -m torch.distributed.launch --nproc_per_node=[NUM OF GPUs] train_stylegan2.py
+        python -m torch.distributed.launch --nproc_per_node=[NUM_OF_GPUs] train_stylegan2.py
         
         # If you want to kill all processes
         kill $(ps aux | grep train_stylegan2.py | grep -v grep | awk '{print $2}')
@@ -102,7 +102,7 @@ For more information, please refer to [`train_stylegan2.py`](https://github.com/
 
 ### 3. Generate images with your trained model
 
-        python test_stylegan2.py --load_epoch [EPOCH NUM] --path_save_dir [SAVE DIR] --gpu_ids [GPU IDS]
+        python test_stylegan2.py --load_epoch [EPOCH_NUM] --path_save_dir [SAVE_DIR] --gpu_ids [GPU_IDS, i.e. 0, 1]
         
  For more information, please refer to `test_stylegan2.py --help`.
 
