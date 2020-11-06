@@ -81,6 +81,7 @@ For more information, please refer to `python generate_img_pre-trained.py --help
 
 
 ### 1. Create lmdb dataset
+If you want to use FFHQ dataset, please download it from [here](https://github.com/NVlabs/ffhq-dataset).
 
         python prepare_dataset.py [DATASET_PATH]
 
