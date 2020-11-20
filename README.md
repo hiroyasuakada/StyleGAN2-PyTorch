@@ -1,6 +1,8 @@
 # Stylegan2-by-PyTorch
 A PyTorch implementation of StyleGAN2.
 
+Example images and Detailed Usage are listed below.
+
 (There may be some difference from the original implementation.)
 
 # Demo
