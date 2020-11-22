@@ -9,13 +9,13 @@ Example images and Detailed Usage are listed below.
 ## ① Use Pre-Trained Models from Official Implementation
 
 <div align="center">
-<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/generated_imgs_pre_trained.png" alt="属性" title="タイトル"　width="50px">
+<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/generated_imgs_pre_trained.png" alt="属性" title="タイトル"　width="200">
 </div>
 
 ## ② Train New Model with FFHQ Dataset (256 × 256)
 
 <div align="center">
-<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="200px"> 
+<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="200"> 
 </div>
 
 
