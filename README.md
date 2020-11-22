@@ -81,7 +81,7 @@ For more information, please refer to `python generate_img_pre-trained.py --help
 
 
 
-## **② Train with Custom Datasets**
+## ② Train with Custom Datasets
 
 
 ### 1. Create lmdb dataset
