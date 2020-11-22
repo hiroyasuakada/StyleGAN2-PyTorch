@@ -3,9 +3,9 @@ A PyTorch implementation of StyleGAN2.
 
 This repository allows you to do ...
 
-   **- 1. Use Pre-Trained Models from Official Implementation**
+   - **1. Use Pre-Trained Models from Official Implementation**
  
-   **- 2. Train New Model From Scratch**
+   - **2. Train New Model From Scratch**
 
 Example images and Detailed Usage are listed below. (There may be some difference from the original implementation.)
 
