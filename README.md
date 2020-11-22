@@ -15,7 +15,7 @@ Example images and Detailed Usage are listed below.
 ## ② Train New Model with FFHQ Dataset (256 × 256)
 
 <div align="center">
-<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="200"> 
+<img src="https://github.com/hiroyasuakada/StyleGAN2-PyTorch/blob/master/demo/test_epoch_400_18.png" alt="属性" title="タイトル"　width="600" height="600"> 
 </div>
 
 
